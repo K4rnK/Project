@@ -15,18 +15,86 @@ import streamlit.components.v1 as components
 import db_manager
 
 # ==========================================
-# 1. PAGE CONFIGURATION & STYLING
+# TAB 1: CAPITAL GAIN PREDICTION (UPDATED WITH REASONS BELOW CHART)
 # ==========================================
-st.set_page_config(
-    page_title="Real Estate AI Predictor & Feasibility Model",
-    page_icon="🏗️",
-    layout="wide"
-)
+with tab1:
+    st.subheader("📈 Capital Gain Projection")
+    st.caption("Forecast project valuation trajectory from post-development year to horizon timeline.")
 
-st.title("🏗️ Real Estate Feasibility & Capital Gain Prediction Model")
-st.caption("AI-Powered Spatial Valuation, LandsMaps Data Auto-Enrichment, and Developer Feasibility Analysis")
+    proj_year = st.slider("Select Horizon (n Years):", min_value=1, max_value=15, value=5)
+    future_val = project_value(proj_year)
 
-db_manager.init_db()
+    c1, c2 = st.columns(2)
+    c1.metric(
+        label="Project Base Value (at year after development)", 
+        value=f"฿{total_project_cost:,.0f}",
+        help="Initial project valuation right after development completion (Year 1)."
+    )
+    c2.metric(
+        label=f"Project Base Value (at {proj_year} horizon years)", 
+        value=f"฿{future_val:,.0f}",
+        delta=f"+{((future_val - total_project_cost) / total_project_cost) * 100:.1f}% Growth",
+        help=f"Projected project valuation after holding for {proj_year} years."
+    )
+
+    st.info(f"💡 Projected Project Value at Year {proj_year} after development: **฿{future_val:,.0f}**")
+
+    # แสดงกราฟเส้น Plotly
+    years_range = list(range(1, 16))
+    df_chart = pd.DataFrame({
+        "Year": years_range, 
+        "Project Value (THB)": [project_value(y) for y in years_range]
+    })
+    
+    fig = px.line(
+        df_chart, 
+        x="Year", 
+        y="Project Value (THB)", 
+        markers=True, 
+        title=f"Projected Value Curve (Post-Development to Year {proj_year})"
+    )
+    fig.add_scatter(
+        x=[proj_year], 
+        y=[future_val], 
+        mode="markers", 
+        marker=dict(size=14, color="red"), 
+        name=f"Year {proj_year} Horizon"
+    )
+    fig.update_yaxes(tickformat=",.0f")
+    st.plotly_chart(fig, use_container_width=True)
+
+    # ----------------------------------------------------
+    # ส่วนเหตุผลการเติบโตใต้กราฟ (Project Value Growth Reasons)
+    # ----------------------------------------------------
+    st.markdown("---")
+    st.markdown("### 💡 Why Project Base Value Increases?")
+    st.caption("สรุปปัจจัยเชิงพื้นที่และศักยภาพทางกายภาพที่ขับเคลื่อนการเติบโตของมูลค่าโครงการตามแนวโค้งในกราฟ")
+
+    c_reason1, c_reason2, c_reason3 = st.columns(3)
+
+    with c_reason1:
+        st.info(f"""
+        **1. Spatial Accessibility (การเข้าถึง)**
+        * ถนนหน้าแปลงกว้าง **{spatial_data['lanes']} เลน** (ROW {spatial_data['row_width_m']} ม.)
+        * ปริมาณจราจร (AADT) **{spatial_data['aadt']:,} คัน/วัน** ช่วยเพิ่มโอกาสการดูดซับของตลาด
+        * ห่างจากทางด่วน **{spatial_data['highway_km']} กม.** เดินทางเข้า CBD **{spatial_data['cbd_mins']} นาที**
+        """)
+
+    with c_reason2:
+        st.success(f"""
+        **2. Legal & Physical Potential (สิทธิ์ตามกฎหมาย)**
+        * ผังเมืองสี **{lands_data['zoning_color']}** อนุญาต **FAR {lands_data['far']}** และ **OSR {lands_data['osr']}%**[cite: 1]
+        * ปลดล็อกพื้นที่อาคารรวม (GFA) สูงสุด ยกระดับราคาที่ดินตามหลัก **Highest & Best Use (HBU)**[cite: 1]
+        * หน้ากว้างติดถนน **{lands_data['frontage_m']:.0f} เมตร** หนุนความโดดเด่นของโครงการ[cite: 1]
+        """)
+
+    with c_reason3:
+        st.warning(f"""
+        **3. Demographic Momentum (ดีมานด์ประชากร)**
+        * ความหนาแน่นประชากร **{spatial_data['pop_density']:,} คน/ตร.กม.**[cite: 1]
+        * เติบโต **{spatial_data['pop_growth_pct']}% ต่อปี** เป็นตัวคูณในอัตราการเติบโตทบต้น ($g = 2.5\% + \text{{Pop Growth}}$)[cite: 1]
+        * Feeder Density (จุดจอดรถเมล์/ระบบสัญจร) **{spatial_data['bus_stops_1km']} จุด/1 กม.**[cite: 1]
+        """)
 
 # ==========================================
 # 2. CONSTANTS & ASSUMPTIONS
