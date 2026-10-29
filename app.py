@@ -15,86 +15,18 @@ import streamlit.components.v1 as components
 import db_manager
 
 # ==========================================
-# TAB 1: CAPITAL GAIN PREDICTION (UPDATED WITH REASONS BELOW CHART)
+# 1. PAGE CONFIGURATION & STYLING
 # ==========================================
-with tab1:
-    st.subheader("📈 Capital Gain Projection")
-    st.caption("Forecast project valuation trajectory from post-development year to horizon timeline.")
+st.set_page_config(
+    page_title="Real Estate AI Predictor & Feasibility Model",
+    page_icon="🏗️",
+    layout="wide"
+)
 
-    proj_year = st.slider("Select Horizon (n Years):", min_value=1, max_value=15, value=5)
-    future_val = project_value(proj_year)
+st.title("🏗️ Real Estate Feasibility & Capital Gain Prediction Model")
+st.caption("AI-Powered Spatial Valuation, LandsMaps Data Auto-Enrichment, and Developer Feasibility Analysis")
 
-    c1, c2 = st.columns(2)
-    c1.metric(
-        label="Project Base Value (at year after development)", 
-        value=f"฿{total_project_cost:,.0f}",
-        help="Initial project valuation right after development completion (Year 1)."
-    )
-    c2.metric(
-        label=f"Project Base Value (at {proj_year} horizon years)", 
-        value=f"฿{future_val:,.0f}",
-        delta=f"+{((future_val - total_project_cost) / total_project_cost) * 100:.1f}% Growth",
-        help=f"Projected project valuation after holding for {proj_year} years."
-    )
-
-    st.info(f"💡 Projected Project Value at Year {proj_year} after development: **฿{future_val:,.0f}**")
-
-    # แสดงกราฟเส้น Plotly
-    years_range = list(range(1, 16))
-    df_chart = pd.DataFrame({
-        "Year": years_range, 
-        "Project Value (THB)": [project_value(y) for y in years_range]
-    })
-    
-    fig = px.line(
-        df_chart, 
-        x="Year", 
-        y="Project Value (THB)", 
-        markers=True, 
-        title=f"Projected Value Curve (Post-Development to Year {proj_year})"
-    )
-    fig.add_scatter(
-        x=[proj_year], 
-        y=[future_val], 
-        mode="markers", 
-        marker=dict(size=14, color="red"), 
-        name=f"Year {proj_year} Horizon"
-    )
-    fig.update_yaxes(tickformat=",.0f")
-    st.plotly_chart(fig, use_container_width=True)
-
-    # ----------------------------------------------------
-    # ส่วนเหตุผลการเติบโตใต้กราฟ (Project Value Growth Reasons)
-    # ----------------------------------------------------
-    st.markdown("---")
-    st.markdown("### 💡 Why Project Base Value Increases?")
-    st.caption("สรุปปัจจัยเชิงพื้นที่และศักยภาพทางกายภาพที่ขับเคลื่อนการเติบโตของมูลค่าโครงการตามแนวโค้งในกราฟ")
-
-    c_reason1, c_reason2, c_reason3 = st.columns(3)
-
-    with c_reason1:
-        st.info(f"""
-        **1. Spatial Accessibility (การเข้าถึง)**
-        * ถนนหน้าแปลงกว้าง **{spatial_data['lanes']} เลน** (ROW {spatial_data['row_width_m']} ม.)
-        * ปริมาณจราจร (AADT) **{spatial_data['aadt']:,} คัน/วัน** ช่วยเพิ่มโอกาสการดูดซับของตลาด
-        * ห่างจากทางด่วน **{spatial_data['highway_km']} กม.** เดินทางเข้า CBD **{spatial_data['cbd_mins']} นาที**
-        """)
-
-    with c_reason2:
-        st.success(f"""
-        **2. Legal & Physical Potential (สิทธิ์ตามกฎหมาย)**
-        * ผังเมืองสี **{lands_data['zoning_color']}** อนุญาต **FAR {lands_data['far']}** และ **OSR {lands_data['osr']}%**[cite: 1]
-        * ปลดล็อกพื้นที่อาคารรวม (GFA) สูงสุด ยกระดับราคาที่ดินตามหลัก **Highest & Best Use (HBU)**[cite: 1]
-        * หน้ากว้างติดถนน **{lands_data['frontage_m']:.0f} เมตร** หนุนความโดดเด่นของโครงการ[cite: 1]
-        """)
-
-    with c_reason3:
-        st.warning(f"""
-        **3. Demographic Momentum (ดีมานด์ประชากร)**
-        * ความหนาแน่นประชากร **{spatial_data['pop_density']:,} คน/ตร.กม.**[cite: 1]
-        * เติบโต **{spatial_data['pop_growth_pct']}% ต่อปี** เป็นตัวคูณในอัตราการเติบโตทบต้น ($g = 2.5\% + \text{{Pop Growth}}$)[cite: 1]
-        * Feeder Density (จุดจอดรถเมล์/ระบบสัญจร) **{spatial_data['bus_stops_1km']} จุด/1 กม.**[cite: 1]
-        """)
+db_manager.init_db()
 
 # ==========================================
 # 2. CONSTANTS & ASSUMPTIONS
@@ -172,7 +104,7 @@ def parse_google_map_url(url):
         if match:
             return float(match.group(1)), float(match.group(2))
             
-    # Default fallback for named location strings within Thailand
+    # Default fallback for named location strings within Thailand (Center Bangkok / Pathum Thani area)
     return 14.0722, 100.6015
 
 def in_thailand(lat, lon):
@@ -289,6 +221,7 @@ def score_typologies(lands, sp):
     zone = lands["zoning_color"]
     residential = zone in ("Yellow", "Orange")
     commercial = zone in ("Orange", "Red")
+    industrial = zone == "Purple"
     flood_pen = 0.5 * len(sp["flood_events"])
 
     detached = (5.0 + (2.5 if residential else 0.0) + 1.5 * min(sp["pop_growth_pct"] / 4.0, 1.0) - flood_pen)
@@ -384,10 +317,9 @@ input_expected_revenue = st.sidebar.number_input("Expected Gross Revenue (THB):"
 dev_timeline_years = st.sidebar.slider("Development Timeline (Years):", min_value=1, max_value=10, value=3)
 
 # ==========================================
+# 6. LOCATION & PARCEL SUMMARY
 # ==========================================
-# 6. LOCATION & PARCEL SUMMARY & GROWTH REASONS
-# ==========================================
-st.subheader("📍 Parcel Location Summary & Value Growth Drivers")
+st.subheader("📍 Parcel Location Summary")
 col_map, col_info = st.columns([3, 2])
 with col_map:
     components.iframe(f"https://maps.google.com/maps?q={lat},{lon}&z=17&output=embed", height=320)
@@ -396,40 +328,6 @@ with col_info:
     st.metric("Total Project Cost", f"฿{total_project_cost:,.0f}")
     st.metric("Zoning Code", f"{lands_data['zoning_color']} Zone", lands_data['zoning_desc'], delta_color="off")
     st.link_button("🗺️ Open in Google Maps", gmap_url)
-
-# ----------------------------------------------------
-# เพิ่มส่วนนี้: เหตุผลทำไม Project Value ถึงเพิ่มขึ้น (หน้าแรก)
-# ----------------------------------------------------
-st.markdown("### 💡 Why Project Base Value Increases?")
-st.caption("สรุปปัจจัยเชิงพื้นที่และศักยภาพทางกายภาพที่ขับเคลื่อนการเติบโตของมูลค่าโครงการ")
-
-c_reason1, c_reason2, c_reason3 = st.columns(3)
-
-with c_reason1:
-    st.info(f"""
-    **1. Spatial Accessibility (การเข้าถึง)**
-    * ถนนหน้าแปลงกว้าง **{spatial_data['lanes']} เลน** (ROW {spatial_data['row_width_m']} ม.)
-    * ปริมาณจราจร (AADT) **{spatial_data['aadt']:,} คัน/วัน** ช่วยเพิ่มความหนาแน่นเชิงพาณิชย์
-    * ห่างจากทางด่วนเพียง **{spatial_data['highway_km']} กม.** เข้า CBD ใน **{spatial_data['cbd_mins']} นาที**
-    """)
-
-with c_reason2:
-    st.success(f"""
-    **2. Legal & Physical Potential (สิทธิ์ตามกฎหมาย)**
-    * โซนสี **{lands_data['zoning_color']}** อนุญาต **FAR {lands_data['far']}** และ **OSR {lands_data['osr']}%**
-    * ปลดล็อกพื้นที่อาคารรวม (GFA) สูงสุด สร้างมูลค่าเพิ่มจากที่ดินเปล่าตามหลัก **Highest & Best Use (HBU)**
-    * หน้ากว้างติดถนน **{lands_data['frontage_m']:.0f} เมตร** ช่วยเพิ่มความโดดเด่นของโครงการ[cite: 1]
-    """)
-
-with c_reason3:
-    st.warning(f"""
-    **3. Demographic Momentum (ดีมานด์ประชากร)**
-    * ความหนาแน่นประชากร **{spatial_data['pop_density']:,} คน/ตร.กม.**[cite: 1]
-    * ประชากรเติบโต **{spatial_data['pop_growth_pct']}% ต่อปี** หนุนอัตราการเติบโตทบต้น ($g = 2.5\% + \text{{Pop Growth}}$)[cite: 1]
-    * Feeder Density (จุดจอดรถเมล์/วิน) สูง **{spatial_data['bus_stops_1km']} จุด/1 กม.**[cite: 1]
-    """)
-
-st.markdown("---")
 
 # ==========================================
 # 7. AUTO-DETECTED VARIABLE CATALOG
@@ -582,7 +480,7 @@ with tab2:
         hbu_df = pd.DataFrame(hbu_rankings, columns=["Typology", "Score (0-10)"])
         st.dataframe(hbu_df, hide_index=True, use_container_width=True)
 
-# TAB 3: DATA REASONS & PROOF
+# TAB 3: DATA REASONS & PROOF (ENHANCED DEMO)
 with tab3:
     st.subheader("📑 Data Justifications & Spatial Proof")
     st.caption("Detailed analytical justifications mapped against detected site variables and historical backtest benchmarks.")
@@ -593,12 +491,12 @@ with tab3:
     * **Road Frontage:** Frontage width of **{lands_data['frontage_m']:.0f} meters** provides optimal commercial visibility and access clearance.
     
     ### 2. Accessibility & Transit Friction Proof
-    * **Road Geometry:** Situated on a **{spatial_data['lanes']}-lane roadway** with **{spatial_data['row_width_m']}m Right-of-Way (ROW)** and daily traffic volume (AADT) of **{spatial_data['aadt']:,} vehicles/day**[cite: 1].
-    * **Highway & CBD Connectivity:** Located **{spatial_data['highway_km']} km** from major highway ramp with an estimated **{spatial_data['cbd_mins']} mins** commute to CBD[cite: 1].
-    * **Feeder Transit System:** High feeder coverage with **{spatial_data['bus_stops_1km']} bus stops within 1 km** and a Taxi/Van KDE score of **{spatial_data['taxi_kde']}/100**[cite: 1].
+    * **Road Geometry:** Situated on a **{spatial_data['lanes']}-lane roadway** with **{spatial_data['row_width_m']}m Right-of-Way (ROW)** and daily traffic volume (AADT) of **{spatial_data['aadt']:,} vehicles/day**.
+    * **Highway & CBD Connectivity:** Located **{spatial_data['highway_km']} km** from major highway ramp with an estimated **{spatial_data['cbd_mins']} mins** commute to CBD.
+    * **Feeder Transit System:** High feeder coverage with **{spatial_data['bus_stops_1km']} bus stops within 1 km** and a Taxi/Van KDE score of **{spatial_data['taxi_kde']}/100**.
 
     ### 3. Demographic & Economic Momentum
-    * **Catchment Population:** Local density of **{spatial_data['pop_density']:,} people/km²** with an annual population growth rate of **{spatial_data['pop_growth_pct']}%**, creating steady organic demand for **{selected_typology}**[cite: 1].
+    * **Catchment Population:** Local density of **{spatial_data['pop_density']:,} people/km²** with an annual population growth rate of **{spatial_data['pop_growth_pct']}%**, creating steady organic demand for **{selected_typology}**.
     """)
 
     st.markdown("---")
