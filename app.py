@@ -3,6 +3,7 @@ import io
 import math
 import random
 import re
+from pathlib import Path
 from urllib.parse import unquote
 from urllib.request import Request, urlopen
 
@@ -151,73 +152,99 @@ def fetch_spatial_context(lat, lon):
     rng = random.Random(f"spatial|{lat:.4f},{lon:.4f}")
     n_floods = rng.choice([0, 0, 1, 1, 2, 3])
     flood_years = sorted(rng.sample(range(2016, 2026), n_floods))
+    lanes = rng.choice([2, 4, 6])
+    aadt = rng.randrange(15_000, 80_001, 1_000)
+    pop_density = rng.randrange(1_500, 9_001, 100)
     return {
+        # road
         "highway_km": round(rng.uniform(0.5, 5.0), 1),
         "cbd_mins": rng.randint(20, 70),
-        "lanes": rng.choice([2, 4, 6]),
-        "aadt": rng.randrange(15_000, 80_001, 1_000),
-        "motorcycle_kde": rng.choice(["Low", "Medium", "High"]),
+        "intersection_km": round(rng.uniform(0.2, 3.0), 1),
+        "centrality_index": rng.randint(30, 95),
+        "lanes": lanes,
+        "row_width_m": {2: 20, 4: 30, 6: 40}[lanes] + rng.choice([0, 5, 10]),
+        "uturn_km": round(rng.uniform(0.2, 2.5), 1),
+        "aadt": aadt,
+        "peak_pcu": int(aadt * rng.uniform(0.08, 0.11)),
+        # feeder / system density (KDE index 0-100)
+        "taxi_kde": rng.randint(5, 95),
+        "van_kde": rng.randint(5, 95),
+        "bus_kde": rng.randint(5, 95),
         "bus_stops_1km": rng.randint(2, 15),
-        "pop_density": rng.randrange(1_500, 9_001, 100),
+        # socio-economic & amenities
+        "pop_density": pop_density,
+        "household_density": int(pop_density * rng.uniform(0.33, 0.42)),
         "pop_growth_pct": round(rng.uniform(1.0, 5.0), 1),
         "mall_km": round(rng.uniform(0.5, 5.0), 1),
-        "schools_3km": rng.randint(2, 12),
-        "hospitals_5km": rng.randint(1, 6),
+        "market_km": round(rng.uniform(0.3, 4.0), 1),
+        "school_km": round(rng.uniform(0.3, 4.0), 1),
+        "hospital_km": round(rng.uniform(0.8, 8.0), 1),
+        # market / law
+        "launch_price_sqm": rng.randrange(35_000, 90_001, 1_000),
+        "setback_m": rng.choice([6, 8, 10, 12]),
+        # risk history: (year, max depth in cm)
         "flood_events": [(y, rng.randrange(10, 80, 5)) for y in flood_years],
     }
 
 
-def build_variable_groups(lands, sp):
-    """Variable tables that the user can show / hide and export."""
-    road = pd.DataFrame([
-        ("Road frontage", f"{lands['frontage_m']:.0f} m", "LandsMaps"),
-        ("Network distance to highway", f"{sp['highway_km']} km", "Road network"),
-        ("Network travel time to CBD", f"{sp['cbd_mins']} mins", "Road network"),
-        ("Road lanes", f"{sp['lanes']}", "Road network"),
-        ("Traffic volume (AADT)", f"{sp['aadt']:,} veh/day", "Road network"),
-    ], columns=["Variable", "Value", "Source"])
+RISK_GROUP = "Risk history (flood table)"
 
-    density = pd.DataFrame([
-        ("Motorcycle stand density (KDE)", sp["motorcycle_kde"], "Feeder"),
-        ("Bus stops within 1 km", f"{sp['bus_stops_1km']}", "Feeder"),
-    ], columns=["Variable", "Value", "Source"])
 
-    socio = pd.DataFrame([
-        ("Population density", f"{sp['pop_density']:,} per sq.km", "Socio-economic"),
-        ("Population growth rate", f"{sp['pop_growth_pct']}% per year", "Socio-economic"),
-        ("Distance to nearest mall", f"{sp['mall_km']} km", "Amenities"),
-        ("Schools within 3 km", f"{sp['schools_3km']}", "Amenities"),
-        ("Hospitals within 5 km", f"{sp['hospitals_5km']}", "Amenities"),
-    ], columns=["Variable", "Value", "Source"])
+@st.cache_data(show_spinner=False)
+def load_variable_catalog():
+    """Variable catalogue (group, name, units, criteria, assumption) from variables.csv."""
+    path = Path(__file__).with_name("variables.csv")
+    if not path.exists():
+        return None
+    return pd.read_csv(path, dtype=str, encoding="utf-8-sig").fillna("")
 
-    laws = pd.DataFrame([
-        ("Parcel number", lands["parcel_number"], "LandsMaps"),
-        ("Zoning color", f"{lands['zoning_color']} ({lands['zoning_desc']})", "City plan"),
-        ("Floor Area Ratio (FAR)", f"{lands['far']}", "City plan"),
-        ("Open Space Ratio (OSR)", f"{lands['osr']}%", "City plan"),
-        ("Treasury appraisal price", f"฿{lands['treasury_price']:,.0f} /sq.wah", "Treasury Dept."),
-        ("Market asking price", f"฿{lands['market_price']:,.0f} /sq.wah", "Listings"),
-    ], columns=["Variable", "Value", "Source"])
 
-    if sp["flood_events"]:
-        risk = pd.DataFrame(
-            [(y, "Flooding", f"{d} cm") for y, d in sp["flood_events"]],
-            columns=["Year", "Event", "Max water depth"],
-        )
-        risk["Year"] = risk["Year"].astype(str)
-    else:
-        risk = pd.DataFrame(
-            [("-", "No recorded flood event (last 10 years)", "-")],
-            columns=["Year", "Event", "Max water depth"],
-        )
+def kde_label(index):
+    return "High" if index >= 67 else "Medium" if index >= 34 else "Low"
 
+
+def detect_variable_values(lands, sp):
+    """Map catalogue keys (variables.csv `key` column) to the value detected for this site."""
+    n_floods = len(sp["flood_events"])
+    max_depth = max((d for _, d in sp["flood_events"]), default=0)
     return {
-        "Road variables": road,
-        "System density (feeder)": density,
-        "Socio-economic & amenities": socio,
-        "Laws (zoning & regulation)": laws,
-        "Risk history (flood table)": risk,
+        "road_network_dist": f"{sp['highway_km']} km",
+        "network_travel_time": f"{sp['cbd_mins']} mins",
+        "intersection_dist": f"{sp['intersection_km']} km",
+        "network_centrality": f"{sp['centrality_index']} / 100 (closeness index)",
+        "road_geometry": f"{sp['lanes']} lanes / {sp['row_width_m']} m right-of-way",
+        "uturn_dist": f"{sp['uturn_km']} km",
+        "vehicle_volume": f"{sp['aadt']:,} vehicles/day / {sp['peak_pcu']:,} PCU/hr",
+        "taxi_density": f"{kde_label(sp['taxi_kde'])} (KDE {sp['taxi_kde']})",
+        "van_density": f"{kde_label(sp['van_kde'])} (KDE {sp['van_kde']})",
+        "bus_density": f"{kde_label(sp['bus_kde'])} (KDE {sp['bus_kde']}), {sp['bus_stops_1km']} stops within 1 km",
+        "pop_density": f"{sp['pop_density']:,} people/km² / {sp['household_density']:,} households/km²",
+        "pop_growth": f"{sp['pop_growth_pct']}% per year",
+        "mall_market_dist": f"Mall {sp['mall_km']} km / market {sp['market_km']} km",
+        "school_hospital_dist": f"School {sp['school_km']} km / hospital {sp['hospital_km']} km",
+        "parcel_size": f"{lands['land_size_sqwah']:,.0f} sq.wah",
+        "frontage": f"{lands['frontage_m']:.0f} m",
+        "launch_prices": f"฿{sp['launch_price_sqm']:,.0f} /sq.m",
+        "zoning": f"{lands['zoning_color']} ({lands['zoning_desc']})",
+        "far_osr": f"FAR {lands['far']} / OSR {lands['osr']}%",
+        "setback": f"{sp['setback_m']} m",
+        "flood_freq": f"{n_floods} event(s) in 10 years",
+        "flood_depth": f"{max_depth} cm" if n_floods else "No flood recorded",
     }
+
+
+def flood_history_table(sp):
+    if sp["flood_events"]:
+        table = pd.DataFrame(
+            [(str(y), "Flooding", f"{d} cm") for y, d in sp["flood_events"]],
+            columns=["Year", "Event", "Max water depth"],
+        )
+    else:
+        table = pd.DataFrame(
+            [("-", "No recorded flood event", "-")],
+            columns=["Year", "Event", "Max water depth"],
+        )
+    return table
 
 
 # ==========================================
@@ -328,7 +355,6 @@ st.sidebar.success(f"Detected location: Lat {lat:.4f}, Lon {lon:.4f}")
 
 lands_data = fetch_lands_maps_data(lat, lon)
 spatial_data = fetch_spatial_context(lat, lon)
-variable_groups = build_variable_groups(lands_data, spatial_data)
 site_key = f"{lat:.4f}_{lon:.4f}"
 
 # ==========================================
@@ -390,37 +416,63 @@ with col_info:
 # 9. AUTO-DETECTED VARIABLES (SHOW / HIDE)
 # ==========================================
 st.subheader("🧭 Auto-Detected Variables for Analysis")
-group_names = list(variable_groups.keys())
-visible_groups = st.multiselect("Choose which variable groups to show:", group_names, default=group_names)
+st.caption("Variables come from variables.csv (based on the Variables.xlsx catalogue). Values are detected from the Google Maps location.")
 
-if visible_groups:
-    for name in visible_groups:
-        with st.expander(name, expanded=True):
-            st.dataframe(variable_groups[name], hide_index=True)
-
-    if importlib.util.find_spec("openpyxl") is not None:
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-            for name in visible_groups:
-                variable_groups[name].to_excel(writer, sheet_name=name[:31], index=False)
-        st.download_button(
-            "⬇️ Download visible variables (Excel)",
-            data=buffer.getvalue(),
-            file_name="site_variables.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-    else:
-        # Fallback when openpyxl is not installed: one CSV (opens in Excel / Google Sheets)
-        frames = [df.assign(Group=name) for name, df in ((n, variable_groups[n]) for n in visible_groups)]
-        csv_data = pd.concat(frames, ignore_index=True).to_csv(index=False).encode("utf-8-sig")
-        st.download_button(
-            "⬇️ Download visible variables (CSV)",
-            data=csv_data,
-            file_name="site_variables.csv",
-            mime="text/csv",
-        )
+catalog = load_variable_catalog()
+if catalog is None:
+    st.warning("variables.csv was not found next to app.py, so the variable tables cannot be shown.")
 else:
-    st.caption("All variable groups are hidden.")
+    detected = detect_variable_values(lands_data, spatial_data)
+    catalog = catalog.assign(detected=catalog["key"].map(detected).fillna("n/a"))
+    group_names = list(dict.fromkeys(catalog["group"]))
+    visible_groups = st.multiselect("Variable groups to show:", group_names, default=group_names)
+
+    export_frames = {}
+    for name in visible_groups:
+        grp = catalog[catalog["group"] == name]
+        with st.expander(f"{name} ({len(grp)} variables)", expanded=True):
+            options = grp["variable"].tolist()
+            chosen = st.multiselect("Variables to show:", options, default=options, key=f"vars_{name}")
+            view = grp[grp["variable"].isin(chosen)][["variable", "detected", "units", "criteria", "assumption"]]
+            view = view.rename(columns={
+                "variable": "Variable", "detected": "Detected value", "units": "Units",
+                "criteria": "Criteria", "assumption": "Assumption",
+            })
+            if view.empty:
+                st.caption("All variables in this group are hidden.")
+            else:
+                st.table(view.set_index("Variable"))
+                export_frames[name] = view
+            if name == RISK_GROUP:
+                st.markdown("**Flood event history (last 10 years)**")
+                flood_table = flood_history_table(spatial_data)
+                st.table(flood_table.set_index("Year"))
+                export_frames["Flood history"] = flood_table
+
+    if export_frames:
+        if importlib.util.find_spec("openpyxl") is not None:
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                for sheet, df in export_frames.items():
+                    df.to_excel(writer, sheet_name=sheet[:31], index=False)
+            st.download_button(
+                "⬇️ Download visible variables (Excel)",
+                data=buffer.getvalue(),
+                file_name="site_variables.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        else:
+            # Fallback when openpyxl is not installed: one CSV (opens in Excel / Google Sheets)
+            frames = [df.assign(Group=sheet) for sheet, df in export_frames.items() if "Variable" in df.columns]
+            csv_data = pd.concat(frames, ignore_index=True).to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                "⬇️ Download visible variables (CSV)",
+                data=csv_data,
+                file_name="site_variables.csv",
+                mime="text/csv",
+            )
+    else:
+        st.caption("All variables are hidden.")
 
 st.markdown("---")
 
@@ -550,7 +602,7 @@ with tab3:
 
     3. **Demographic & Socio-Economic Growth:**
        * Population growth **{spatial_data['pop_growth_pct']}%** per year and density **{spatial_data['pop_density']:,}/sq.km** drive housing and retail demand.
-       * **{spatial_data['mall_km']} km** to the nearest mall, **{spatial_data['schools_3km']}** schools within 3 km, **{spatial_data['hospitals_5km']}** hospitals within 5 km.
+       * **{spatial_data['mall_km']} km** to the nearest mall, **{spatial_data['school_km']} km** to the nearest school, **{spatial_data['hospital_km']} km** to the nearest hospital.
 
     4. **Statutory Zoning & Legal Upper Bound:**
        * Zone **{lands_data['zoning_color']}** ({lands_data['zoning_desc']}), FAR **{lands_data['far']}**, OSR **{lands_data['osr']}%**.
