@@ -1,3 +1,4 @@
+import importlib.util
 import io
 import math
 import random
@@ -397,16 +398,27 @@ if visible_groups:
         with st.expander(name, expanded=True):
             st.dataframe(variable_groups[name], hide_index=True)
 
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        for name in visible_groups:
-            variable_groups[name].to_excel(writer, sheet_name=name[:31], index=False)
-    st.download_button(
-        "⬇️ Download visible variables (Excel)",
-        data=buffer.getvalue(),
-        file_name="site_variables.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
+    if importlib.util.find_spec("openpyxl") is not None:
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+            for name in visible_groups:
+                variable_groups[name].to_excel(writer, sheet_name=name[:31], index=False)
+        st.download_button(
+            "⬇️ Download visible variables (Excel)",
+            data=buffer.getvalue(),
+            file_name="site_variables.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+    else:
+        # Fallback when openpyxl is not installed: one CSV (opens in Excel / Google Sheets)
+        frames = [df.assign(Group=name) for name, df in ((n, variable_groups[n]) for n in visible_groups)]
+        csv_data = pd.concat(frames, ignore_index=True).to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            "⬇️ Download visible variables (CSV)",
+            data=csv_data,
+            file_name="site_variables.csv",
+            mime="text/csv",
+        )
 else:
     st.caption("All variable groups are hidden.")
 
