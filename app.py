@@ -14,9 +14,7 @@ import streamlit.components.v1 as components
 
 import db_manager
 
-# ==========================================
-# 1. PAGE CONFIGURATION & STYLING
-# ==========================================
+# 1. PAGE CONFIGURATION
 st.set_page_config(
     page_title="Real Estate AI Predictor & Feasibility Model",
     page_icon="🏗️",
@@ -28,9 +26,7 @@ st.caption("AI-Powered Spatial Valuation, LandsMaps Data Auto-Enrichment, and De
 
 db_manager.init_db()
 
-# ==========================================
 # 2. CONSTANTS & ASSUMPTIONS
-# ==========================================
 LANDSMAPS_URL = "https://landsmaps.dol.go.th"
 ASSESS_PRICE_URL = "https://assessprice.treasury.go.th"
 ZONING_URL = "https://landuseplan.dpt.go.th/main/"
@@ -56,11 +52,9 @@ ZONES = {
 }
 
 BASE_APPRECIATION = 0.025
-RISK_GROUP = "Risk history (flood table)"
+RISK_GROUP = "Risk History"
 
-# ==========================================
-# 3. HELPER FUNCTIONS & LOCATION PARSER
-# ==========================================
+# 3. HELPER FUNCTIONS
 COORD_PATTERNS = [
     r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)",
     r"@(-?\d+\.\d+),(-?\d+\.\d+)",
@@ -151,7 +145,9 @@ def fetch_spatial_context(lat, lon):
 
 @st.cache_data(show_spinner=False)
 def load_variable_catalog():
-    path = Path(__file__).with_name("variables.csv")
+    path = Path(__file__).parent / "data" / "variables.csv"
+    if not path.exists():
+        path = Path(__file__).with_name("variables.csv")
     if not path.exists():
         return None
     return pd.read_csv(path, dtype=str, encoding="utf-8-sig").fillna("")
@@ -166,17 +162,17 @@ def detect_variable_values(lands, sp):
         "road_network_dist": f"{sp['highway_km']} km",
         "network_travel_time": f"{sp['cbd_mins']} mins",
         "intersection_dist": f"{sp['intersection_km']} km",
-        "network_centrality": f"{sp['centrality_index']} / 100 (closeness index)",
-        "road_geometry": f"{sp['lanes']} lanes / {sp['row_width_m']} m right-of-way",
+        "network_centrality": f"{sp['centrality_index']} / 100",
+        "road_geometry": f"{sp['lanes']} lanes / {sp['row_width_m']} m ROW",
         "uturn_dist": f"{sp['uturn_km']} km",
-        "vehicle_volume": f"{sp['aadt']:,} vehicles/day / {sp['peak_pcu']:,} PCU/hr",
+        "vehicle_volume": f"{sp['aadt']:,} vehicles/day",
         "taxi_density": f"{kde_label(sp['taxi_kde'])} (KDE {sp['taxi_kde']})",
         "van_density": f"{kde_label(sp['van_kde'])} (KDE {sp['van_kde']})",
-        "bus_density": f"{kde_label(sp['bus_kde'])} (KDE {sp['bus_kde']}), {sp['bus_stops_1km']} stops within 1 km",
-        "pop_density": f"{sp['pop_density']:,} people/km² / {sp['household_density']:,} households/km²",
+        "bus_density": f"{kde_label(sp['bus_kde'])}, {sp['bus_stops_1km']} stops/1km",
+        "pop_density": f"{sp['pop_density']:,} people/km²",
         "pop_growth": f"{sp['pop_growth_pct']}% per year",
-        "mall_market_dist": f"Mall {sp['mall_km']} km / market {sp['market_km']} km",
-        "school_hospital_dist": f"School {sp['school_km']} km / hospital {sp['hospital_km']} km",
+        "mall_market_dist": f"Mall {sp['mall_km']} km / Market {sp['market_km']} km",
+        "school_hospital_dist": f"School {sp['school_km']} km / Hospital {sp['hospital_km']} km",
         "parcel_size": f"{lands['land_size_sqwah']:,.0f} sq.wah",
         "frontage": f"{lands['frontage_m']:.0f} m",
         "launch_prices": f"฿{sp['launch_price_sqm']:,.0f} /sq.m",
@@ -191,12 +187,9 @@ def flood_history_table(sp):
     if sp["flood_events"]:
         return pd.DataFrame(
             [(str(y), "Flooding", f"{d} cm") for y, d in sp["flood_events"]],
-            columns=["Year", "Event", "Max water depth"],
+            columns=["Year", "Event", "Max Water Depth"],
         )
-    return pd.DataFrame(
-        [("-", "No recorded flood event", "-")],
-        columns=["Year", "Event", "Max water depth"],
-    )
+    return pd.DataFrame([("-", "No recorded flood event", "-")], columns=["Year", "Event", "Max Water Depth"])
 
 def clamp(x, lo=0.0, hi=10.0):
     return max(lo, min(hi, x))
@@ -226,21 +219,19 @@ def find_similar_backtests(typology, lands, sp, top_n=3):
         )
         rows.append({
             "Project": row["project_name"],
-            "Population density": row["pop_density"],
+            "Population Density": row["pop_density"],
             "AADT": row["aadt"],
             "Frontage (m)": row["frontage_m"],
-            "Holding years": row["holding_years"],
-            "Total value growth (%)": row["total_value_growth_pct"],
-            "Annualized growth (%)": row["annualized_growth_pct"],
+            "Holding Years": row["holding_years"],
+            "Total Growth (%)": row["total_value_growth_pct"],
+            "Annualized Growth (%)": row["annualized_growth_pct"],
             "_dist": dist,
         })
     rows.sort(key=lambda r: r["_dist"])
     res_df = pd.DataFrame(rows[:top_n])
     return res_df.drop(columns=["_dist"]) if not res_df.empty else res_df
 
-# ==========================================
 # 4. SIDEBAR INPUT CONTROLS
-# ==========================================
 st.sidebar.header("📍 1. Parcel Location Input")
 gmap_url = st.sidebar.text_input("Paste Google Maps Link:", value=DEFAULT_GMAP_URL)
 
@@ -275,7 +266,6 @@ st.sidebar.markdown(f"👉 *Find official price at:* [{ASSESS_PRICE_URL}]({ASSES
 input_zoning = st.sidebar.selectbox("Zoning Code / Color:", options=list(ZONES.keys()), index=list(ZONES.keys()).index(lands_data["zoning_color"]))
 st.sidebar.markdown(f"👉 *Verify zoning at:* [{ZONING_URL}]({ZONING_URL})")
 
-# Overriding values with user inputs
 lands_data["land_size_sqwah"] = input_land_size
 lands_data["market_price"] = input_land_cost_sqw
 lands_data["zoning_color"] = input_zoning
@@ -298,9 +288,7 @@ input_expected_revenue = st.sidebar.number_input("Expected Gross Revenue (THB):"
 
 dev_timeline_years = st.sidebar.slider("Development Timeline (Years):", min_value=1, max_value=10, value=3)
 
-# ==========================================
 # 5. LOCATION & LAND DISPLAY
-# ==========================================
 st.subheader("📍 Parcel Location Summary")
 col_map, col_info = st.columns([3, 2])
 with col_map:
@@ -311,71 +299,62 @@ with col_info:
     st.metric("Zoning", f"{lands_data['zoning_color']}", lands_data['zoning_desc'], delta_color="off")
     st.link_button("🗺️ Open in Google Maps", gmap_url)
 
-# ==========================================
-# 6. VARIABLE CATALOG TABLE (RESTORED FROM variables.csv)
-# ==========================================
-st.subheader("🧭 Auto-Detected Variables for Analysis")
-st.caption("Auto-filled values generated from location spatial context matched with variables.csv schema.")
-
+# 6. VARIABLE CATALOG TABLE (COLLAPSED BY DEFAULT)
 catalog = load_variable_catalog()
-if catalog is None:
-    st.warning("variables.csv was not found next to app.py.")
-else:
+if catalog is not None:
     detected = detect_variable_values(lands_data, spatial_data)
     catalog = catalog.assign(detected=catalog["key"].map(detected).fillna("n/a"))
     group_names = list(dict.fromkeys(catalog["group"]))
-    visible_groups = st.multiselect("Variable groups to show:", group_names, default=group_names)
 
-    export_frames = {}
-    for name in visible_groups:
-        grp = catalog[catalog["group"] == name]
-        # expanded=False keeps each group collapsed on load
-        with st.expander(f"{name} ({len(grp)} variables)", expanded=False):
+    with st.expander("🧭 Auto-Detected Variables for Analysis (Click to Expand)", expanded=False):
+        st.caption("Auto-filled spatial and environmental factors matched with site location.")
+        visible_groups = st.multiselect("Variable groups to show:", group_names, default=group_names)
+
+        export_frames = {}
+        for name in visible_groups:
+            grp = catalog[catalog["group"] == name]
+            st.markdown(f"#### {name}")
             options = grp["variable"].tolist()
-            chosen = st.multiselect("Variables to show:", options, default=options, key=f"vars_{name}")
+            chosen = st.multiselect(f"Variables in {name}:", options, default=options, key=f"vars_{name}")
             view = grp[grp["variable"].isin(chosen)][["variable", "detected", "units", "criteria", "assumption"]]
             view = view.rename(columns={
                 "variable": "Variable", "detected": "Detected value", "units": "Units",
                 "criteria": "Criteria", "assumption": "Assumption",
             })
-            if view.empty:
-                st.caption("All variables in this group are hidden.")
-            else:
+            if not view.empty:
                 st.table(view.set_index("Variable"))
                 export_frames[name] = view
             if name == RISK_GROUP:
-                st.markdown("**Flood event history (last 10 years)**")
+                st.markdown("**Flood Event History (Last 10 Years)**")
                 flood_table = flood_history_table(spatial_data)
                 st.table(flood_table.set_index("Year"))
                 export_frames["Flood history"] = flood_table
 
-    if export_frames:
-        if importlib.util.find_spec("openpyxl") is not None:
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-                for sheet, df in export_frames.items():
-                    df.to_excel(writer, sheet_name=sheet[:31], index=False)
-            st.download_button(
-                "⬇️ Download visible variables (Excel)",
-                data=buffer.getvalue(),
-                file_name="site_variables.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
-        else:
-            frames = [df.assign(Group=sheet) for sheet, df in export_frames.items() if "Variable" in df.columns]
-            csv_data = pd.concat(frames, ignore_index=True).to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                "⬇️ Download visible variables (CSV)",
-                data=csv_data,
-                file_name="site_variables.csv",
-                mime="text/csv",
-            )
+        if export_frames:
+            if importlib.util.find_spec("openpyxl") is not None:
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                    for sheet, df in export_frames.items():
+                        df.to_excel(writer, sheet_name=sheet[:31], index=False)
+                st.download_button(
+                    "⬇️ Download Visible Variables (Excel)",
+                    data=buffer.getvalue(),
+                    file_name="site_variables.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+            else:
+                frames = [df.assign(Group=sheet) for sheet, df in export_frames.items() if "Variable" in df.columns]
+                csv_data = pd.concat(frames, ignore_index=True).to_csv(index=False).encode("utf-8-sig")
+                st.download_button(
+                    "⬇️ Download Visible Variables (CSV)",
+                    data=csv_data,
+                    file_name="site_variables.csv",
+                    mime="text/csv",
+                )
 
 st.markdown("---")
 
-# ==========================================
 # 7. MODEL CALCULATIONS & OUTPUT DASHBOARD
-# ==========================================
 net_profit = input_expected_revenue - total_project_cost
 roi_pct = (net_profit / total_project_cost) * 100 if total_project_cost > 0 else 0
 annualized_irr = ((input_expected_revenue / total_project_cost) ** (1 / dev_timeline_years) - 1) * 100 if total_project_cost > 0 else 0
