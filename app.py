@@ -290,63 +290,46 @@ def find_similar_backtests(typology, lands, sp, top_n=3):
     return res_df.drop(columns=["_dist"]) if not res_df.empty else res_df
 
 # ==========================================
-# 4. SIDEBAR INPUT CONTROLS
+# 4. SIDEBAR INPUT CONTROLS (OPTIMIZED FOR MOBILE)
 # ==========================================
 st.sidebar.header("📍 1. Parcel Location Input")
-gmap_url = st.sidebar.text_input("Paste Google Maps Link / Location:", value=DEFAULT_GMAP_URL)
+
+# ใช้ Form หรือ Session State เพื่อให้รองรับการกดปุ่มบนมือถือได้ 100%
+if "gmap_url_state" not in st.session_state:
+    st.session_state["gmap_url_state"] = DEFAULT_GMAP_URL
+
+gmap_url_input = st.sidebar.text_input(
+    "Paste Google Maps Link / Location:", 
+    value=st.session_state["gmap_url_state"],
+    help="วางลิงก์ที่ก๊อปปี้มาจากแอป Google Maps บนมือถือได้เลย"
+)
+
+# เพิ่มปุ่มกดอัปเดตตำแหน่งสำหรับหน้าจอมือถือ
+btn_update_location = st.sidebar.button("📍 ดึงตำแหน่งที่ดิน (Update Location)")
+
+if btn_update_location or gmap_url_input != st.session_state["gmap_url_state"]:
+    st.session_state["gmap_url_state"] = gmap_url_input
+
+gmap_url = st.session_state["gmap_url_state"]
 
 if not is_google_maps_link(gmap_url):
-    st.sidebar.error("Please paste a valid Google Maps link.")
+    st.sidebar.error("⚠️ ลิงก์ไม่ถูกต้อง กรุณาลงลิงก์ Google Maps ให้ถูกต้อง")
     st.stop()
 
 coords = parse_google_map_url(gmap_url)
 if coords is None:
-    st.sidebar.error("Could not extract coordinates.")
+    st.sidebar.error("⚠️ ไม่สามารถสกัดพิกัดจากลิงก์นี้ได้ กรุณาลองคัดลอกลิงก์ใหม่อีกครั้ง")
     st.stop()
 
 lat, lon = coords
 if not in_thailand(lat, lon):
-    st.sidebar.error(f"Location ({lat:.4f}, {lon:.4f}) is outside Thailand.")
+    st.sidebar.error(f"⚠️ พิกัด ({lat:.4f}, {lon:.4f}) อยู่นอกประเทศไทย")
     st.stop()
 
-st.sidebar.success(f"Location Detected: Lat {lat:.4f}, Lon {lon:.4f}")
+st.sidebar.success(f"🟢 อัปเดตตำแหน่งสำเร็จ: Lat {lat:.4f}, Lon {lon:.4f}")
 
 lands_data = fetch_lands_maps_data(lat, lon)
 spatial_data = fetch_spatial_context(lat, lon)
-
-st.sidebar.markdown("---")
-st.sidebar.header("📐 2. Land Input Parameters")
-
-input_land_size = st.sidebar.number_input("Land Size (Sq.Wah):", min_value=10.0, max_value=100000.0, value=float(lands_data["land_size_sqwah"]), step=10.0)
-st.sidebar.markdown(f"👉 *Find land size at:* [{LANDSMAPS_URL}]({LANDSMAPS_URL})")
-
-input_land_cost_sqw = st.sidebar.number_input("Land Purchase Cost (THB/Sq.Wah):", min_value=1000.0, max_value=5000000.0, value=float(lands_data["market_price"]), step=1000.0)
-st.sidebar.markdown(f"👉 *Find official price at:* [{ASSESS_PRICE_URL}]({ASSESS_PRICE_URL})")
-
-input_zoning = st.sidebar.selectbox("Zoning Code / Color:", options=list(ZONES.keys()), index=list(ZONES.keys()).index(lands_data["zoning_color"]))
-st.sidebar.markdown(f"👉 *Verify zoning at:* [{ZONING_URL}]({ZONING_URL})")
-
-lands_data["land_size_sqwah"] = input_land_size
-lands_data["market_price"] = input_land_cost_sqw
-lands_data["zoning_color"] = input_zoning
-lands_data["zoning_desc"], lands_data["far"], lands_data["osr"] = ZONES[input_zoning]
-
-st.sidebar.markdown("---")
-st.sidebar.header("🏗️ 3. Project Typology & Construction")
-
-selected_typology = st.sidebar.selectbox("Select Real Estate Typology:", TYPOLOGIES)
-benchmarks = CONSTRUCTION_BENCHMARKS[selected_typology]
-
-st.sidebar.caption(f"**Allowed Cost Range:** ฿{benchmarks['min']:,} - ฿{benchmarks['max']:,}")
-
-input_construction_cost = st.sidebar.number_input("Expected Construction Cost (THB):", min_value=float(benchmarks["min"]), max_value=float(benchmarks["max"]), value=float(benchmarks["default"]), step=1000000.0)
-
-total_land_cost = input_land_size * input_land_cost_sqw
-total_project_cost = total_land_cost + input_construction_cost
-
-input_expected_revenue = st.sidebar.number_input("Expected Gross Revenue (THB):", min_value=float(total_project_cost * 0.5), max_value=float(total_project_cost * 3.0), value=float(round(total_project_cost * 1.30, -6)), step=1000000.0)
-
-dev_timeline_years = st.sidebar.slider("Development Timeline (Years):", min_value=1, max_value=10, value=3)
 
 # ==========================================
 # 5. LOCATION & PARCEL SUMMARY
