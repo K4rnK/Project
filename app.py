@@ -316,9 +316,10 @@ input_expected_revenue = st.sidebar.number_input("Expected Gross Revenue (THB):"
 dev_timeline_years = st.sidebar.slider("Development Timeline (Years):", min_value=1, max_value=10, value=3)
 
 # ==========================================
-# 6. LOCATION & PARCEL SUMMARY
 # ==========================================
-st.subheader("📍 Parcel Location Summary")
+# 6. LOCATION & PARCEL SUMMARY & GROWTH REASONS
+# ==========================================
+st.subheader("📍 Parcel Location Summary & Value Growth Drivers")
 col_map, col_info = st.columns([3, 2])
 with col_map:
     components.iframe(f"https://maps.google.com/maps?q={lat},{lon}&z=17&output=embed", height=320)
@@ -327,6 +328,40 @@ with col_info:
     st.metric("Total Project Cost", f"฿{total_project_cost:,.0f}")
     st.metric("Zoning Code", f"{lands_data['zoning_color']} Zone", lands_data['zoning_desc'], delta_color="off")
     st.link_button("🗺️ Open in Google Maps", gmap_url)
+
+# ----------------------------------------------------
+# เพิ่มส่วนนี้: เหตุผลทำไม Project Value ถึงเพิ่มขึ้น (หน้าแรก)
+# ----------------------------------------------------
+st.markdown("### 💡 Why Project Base Value Increases?")
+st.caption("สรุปปัจจัยเชิงพื้นที่และศักยภาพทางกายภาพที่ขับเคลื่อนการเติบโตของมูลค่าโครงการ")
+
+c_reason1, c_reason2, c_reason3 = st.columns(3)
+
+with c_reason1:
+    st.info(f"""
+    **1. Spatial Accessibility (การเข้าถึง)**
+    * ถนนหน้าแปลงกว้าง **{spatial_data['lanes']} เลน** (ROW {spatial_data['row_width_m']} ม.)
+    * ปริมาณจราจร (AADT) **{spatial_data['aadt']:,} คัน/วัน** ช่วยเพิ่มความหนาแน่นเชิงพาณิชย์
+    * ห่างจากทางด่วนเพียง **{spatial_data['highway_km']} กม.** เข้า CBD ใน **{spatial_data['cbd_mins']} นาที**
+    """)
+
+with c_reason2:
+    st.success(f"""
+    **2. Legal & Physical Potential (สิทธิ์ตามกฎหมาย)**
+    * โซนสี **{lands_data['zoning_color']}** อนุญาต **FAR {lands_data['far']}** และ **OSR {lands_data['osr']}%**
+    * ปลดล็อกพื้นที่อาคารรวม (GFA) สูงสุด สร้างมูลค่าเพิ่มจากที่ดินเปล่าตามหลัก **Highest & Best Use (HBU)**
+    * หน้ากว้างติดถนน **{lands_data['frontage_m']:.0f} เมตร** ช่วยเพิ่มความโดดเด่นของโครงการ[cite: 1]
+    """)
+
+with c_reason3:
+    st.warning(f"""
+    **3. Demographic Momentum (ดีมานด์ประชากร)**
+    * ความหนาแน่นประชากร **{spatial_data['pop_density']:,} คน/ตร.กม.**[cite: 1]
+    * ประชากรเติบโต **{spatial_data['pop_growth_pct']}% ต่อปี** หนุนอัตราการเติบโตทบต้น ($g = 2.5\% + \text{{Pop Growth}}$)[cite: 1]
+    * Feeder Density (จุดจอดรถเมล์/วิน) สูง **{spatial_data['bus_stops_1km']} จุด/1 กม.**[cite: 1]
+    """)
+
+st.markdown("---")
 
 # ==========================================
 # 7. AUTO-DETECTED VARIABLE CATALOG
