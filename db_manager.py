@@ -2,19 +2,19 @@ import sqlite3
 import pandas as pd
 from pathlib import Path
 
-# กำหนด Path สำหรับโฟลเดอร์ /data
+# Set up data directory path
 DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 DB_FILE = DATA_DIR / "real_estate_history.db"
 
 def get_connection():
-    """เชื่อมต่อกับฐานข้อมูล SQLite ในโฟลเดอร์ /data"""
+    """Establish connection to SQLite database in the /data folder."""
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
-    """สร้างตารางและลงข้อมูล Seed Data เริ่มต้น"""
+    """Initialize database tables and default historical records inside /data."""
     with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute('''
@@ -51,7 +51,7 @@ def init_db():
         conn.commit()
 
 def fetch_historical_projects(typology=None):
-    """ดึงข้อมูลโครงการในอดีตสำหรับทำ Backtest"""
+    """Retrieve historical dataset for backtesting analysis."""
     init_db()
     with get_connection() as conn:
         if typology:
@@ -62,7 +62,7 @@ def fetch_historical_projects(typology=None):
             return pd.read_sql_query(query, conn)
 
 def add_historical_project(name, typology, pop_density, aadt, frontage_m, holding_years, total_growth, lat=13.90, lon=100.50):
-    """เพิ่มข้อมูลโครงการอสังหาฯ ใหม่เข้าฐานข้อมูล"""
+    """Insert new backend historical project data into the database in /data."""
     init_db()
     annualized = ((1 + total_growth / 100.0) ** (1.0 / holding_years) - 1) * 100
     with get_connection() as conn:
@@ -76,4 +76,4 @@ def add_historical_project(name, typology, pop_density, aadt, frontage_m, holdin
 
 if __name__ == "__main__":
     init_db()
-    print(f"Database successfully initialized in: {DB_FILE}")
+    print(f"Database initialized in directory: {DB_FILE}")
