@@ -37,11 +37,22 @@ def init_db():
         cursor.execute("SELECT COUNT(*) FROM historical_projects")
         if cursor.fetchone()[0] == 0:
             seed_data = [
-                ("Sample D-1", "Detached House Project (โครงการบ้านเดี่ยว)", 3800, 36000, 28, 5, 32.0, 5.71, 13.90, 100.52),
-                ("Sample D-2", "Detached House Project (โครงการบ้านเดี่ยว)", 5200, 48000, 35, 4, 24.0, 5.53, 13.92, 100.55),
-                ("Sample D-3", "Detached House Project (โครงการบ้านเดี่ยว)", 2600, 22000, 25, 6, 41.0, 5.89, 13.88, 100.48),
-                ("Sample M-1", "Community Mall (คอมมูนิตี้มอลล์)", 4500, 55000, 60, 5, 38.0, 6.65, 13.95, 100.60),
-                ("Sample S-1", "Roadside Commercial Shop (อาคารพาณิชย์ริมถนน)", 4800, 52000, 30, 4, 29.0, 6.57, 13.91, 100.58),
+                # Detached House Projects
+                ("Grand Bangkok Boulevard Ratchaphruek", "Detached House Project (โครงการบ้านเดี่ยว)", 3800, 36000, 28, 5, 32.0, 5.71, 13.90, 100.52),
+                ("Centro Chaiyapruek-345", "Detached House Project (โครงการบ้านเดี่ยว)", 5200, 48000, 35, 4, 24.0, 5.53, 13.92, 100.55),
+                ("Setthasiri Krungthep Kreetha", "Detached House Project (โครงการบ้านเดี่ยว)", 4200, 41000, 30, 5, 35.5, 6.26, 13.75, 100.65),
+                
+                # Townhome Projects
+                ("Pleno Ratchaphruek-346", "Townhome Project (โครงการทาวน์โฮม)", 4900, 42000, 25, 3, 18.5, 5.82, 13.98, 100.51),
+                ("Baan Puri Puri Pattanakarn", "Townhome Project (โครงการทาวน์โฮม)", 6100, 51000, 22, 4, 26.0, 5.95, 13.73, 100.62),
+
+                # Community Mall Projects
+                ("The Crystal Chaiyapruek", "Community Mall (คอมมูนิตี้มอลล์)", 4500, 55000, 60, 5, 38.0, 6.65, 13.95, 100.60),
+                ("Robinsons Lifestyle Ratchaphruek", "Community Mall (คอมมูนิตี้มอลล์)", 5800, 62000, 75, 4, 31.0, 6.98, 13.93, 100.47),
+
+                # Roadside Commercial Shops
+                ("Shophouse Corridor 345", "Roadside Commercial Shop (อาคารพาณิชย์ริมถนน)", 4800, 52000, 30, 4, 29.0, 6.57, 13.91, 100.58),
+                ("Market Place Krungthep Kreetha", "Roadside Commercial Shop (อาคารพาณิชย์ริมถนน)", 5100, 58000, 35, 3, 21.5, 6.71, 13.74, 100.64)
             ]
             cursor.executemany('''
                 INSERT INTO historical_projects 
