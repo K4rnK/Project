@@ -329,7 +329,8 @@ else:
     export_frames = {}
     for name in visible_groups:
         grp = catalog[catalog["group"] == name]
-        with st.expander(f"{name} ({len(grp)} variables)", expanded=True):
+        # expanded=False keeps each group collapsed on load
+        with st.expander(f"{name} ({len(grp)} variables)", expanded=False):
             options = grp["variable"].tolist()
             chosen = st.multiselect("Variables to show:", options, default=options, key=f"vars_{name}")
             view = grp[grp["variable"].isin(chosen)][["variable", "detected", "units", "criteria", "assumption"]]
