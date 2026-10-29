@@ -15,16 +15,61 @@ import streamlit.components.v1 as components
 import db_manager
 
 # ==========================================
-# 1. PAGE CONFIGURATION & STYLING
+# 1. PAGE CONFIGURATION & MOBILE STYLING (CSS)
 # ==========================================
 st.set_page_config(
     page_title="Real Estate AI Predictor & Feasibility Model",
     page_icon="🏗️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"  # ยุบ Sidebar บนมือถืออัตโนมัติเพื่อเปิดพื้นที่หน้าจอ
 )
 
-st.title("🏗️ Real Estate Feasibility & Capital Gain Prediction Model")
-st.caption("AI-Powered Spatial Valuation, LandsMaps Data Auto-Enrichment, and Developer Feasibility Analysis")
+# Custom CSS เพื่อปรับแต่ง UI บนสมาร์ทโฟน
+st.markdown("""
+    <style>
+    /* ปรับแต่งเมนูด้านบนและ Padding สำหรับหน้าจอมือถือ */
+    .main .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+    }
+    
+    /* ปรับขนาดตัวอักษรของ Metric บนมือถือ */
+    [data-testid="stMetricValue"] {
+        font-size: 1.4rem !important;
+    }
+    [data-testid="stMetricLabel"] {
+        font-size: 0.85rem !important;
+    }
+    
+    /* ปรับ Tab บนมือถือให้อ่านง่ายและกดสะดวก */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    .stTabs [data-baseweb="tab"] {
+        font-size: 0.85rem;
+        padding: 8px 12px;
+        border-radius: 6px;
+    }
+    
+    /* ซ่อนแถบ Scrollbar แนวนอนในตารางสำหรับมือถือ */
+    .stTable {
+        overflow-x: auto;
+    }
+    
+    /* ให้ปุ่มกดสไลเดอร์และปุ่มป้อนข้อมูลยาวเต็มความกว้างบนหน้าจอมือถือ */
+    div.stButton > button {
+        width: 100%;
+        border-radius: 8px;
+        height: 2.8rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("🏗️ Real Estate Feasibility Model")
+st.caption("AI-Powered Spatial Valuation, LandsMaps Auto-Enrichment & Developer Feasibility")
 
 db_manager.init_db()
 
@@ -309,7 +354,7 @@ dev_timeline_years = st.sidebar.slider("Development Timeline (Years):", min_valu
 st.subheader("📍 Parcel Location Summary")
 col_map, col_info = st.columns([3, 2])
 with col_map:
-    components.iframe(f"https://maps.google.com/maps?q={lat},{lon}&z=17&output=embed", height=320)
+    components.iframe(f"https://maps.google.com/maps?q={lat},{lon}&z=17&output=embed", height=280)
 with col_info:
     st.metric("Total Land Cost", f"฿{total_land_cost:,.0f}")
     st.metric("Total Project Cost", f"฿{total_project_cost:,.0f}")
@@ -389,7 +434,7 @@ user_selected_score = typology_scores[selected_typology]
 hbu_rankings = sorted(typology_scores.items(), key=lambda x: x[1], reverse=True)
 
 # ------------------------------------------
-# INITIALIZE TABS (Fixes NameError: tab1)
+# INITIALIZE TABS
 # ------------------------------------------
 tab1, tab2, tab3, tab4 = st.tabs([
     "📈 Capital Gain Projection", 
@@ -445,7 +490,7 @@ with tab1:
     st.plotly_chart(fig, use_container_width=True)
 
     # ------------------------------------------
-    # REASONS BELOW THE CHART (ใต้กราฟ)
+    # REASONS BELOW THE CHART (รองรับหน้าจอมือถือ)
     # ------------------------------------------
     st.markdown("---")
     st.markdown("### 💡 Why Project Base Value Increases?")
@@ -559,4 +604,4 @@ with tab4:
     st.subheader("Stored Database Records")
     st.dataframe(db_manager.fetch_historical_projects(), use_container_width=True)
 
-st.caption("Real Estate Feasibility Engine v3.3 — Fixed Scope & Resolved NameError")
+st.caption("Real Estate Feasibility Engine v3.4 — Mobile Responsive UI & Optimized Layout")
