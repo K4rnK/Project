@@ -1,4 +1,3 @@
-import importlib.util
 import io
 import math
 import random
@@ -12,8 +11,11 @@ import plotly.express as px
 import streamlit as st
 import streamlit.components.v1 as components
 
+# Import custom backend database manager
+import db_manager
+
 # ==========================================
-# 1. PAGE CONFIGURATION
+# 1. PAGE CONFIGURATION & STYLING
 # ==========================================
 st.set_page_config(
     page_title="Real Estate AI Predictor & Feasibility Model",
@@ -21,16 +23,31 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🏗️ Real Estate Feasibility & Capital Gain Prediction Model")
-st.caption("AI-Powered Spatial Valuation, LandsMaps Data Auto-Enrichment, and Developer Feasibility Analysis")
+# Custom Styling
+st.markdown("""
+<style>
+    .main-title { font-size: 2.2rem; font-weight: 700; color: #1E293B; margin-bottom: 0.2rem; }
+    .sub-title { font-size: 1.0rem; color: #64748B; margin-bottom: 1.5rem; }
+    .card { background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .metric-box { background-color: #FFFFFF; border-left: 4px solid #3B82F6; padding: 0.8rem; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .guide-box { background-color: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 6px; padding: 0.75rem; font-size: 0.85rem; color: #1E40AF; margin-bottom: 1rem; }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="main-title">🏗️ Real Estate Feasibility & Capital Gain Prediction Model</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">AI-Powered Spatial Valuation, Data Auto-Enrichment, and Developer Feasibility Analysis</div>', unsafe_allow_html=True)
+
+# Initialize backend DB
+db_manager.init_db()
 
 # ==========================================
 # 2. CONSTANTS & ASSUMPTIONS
 # ==========================================
 LANDSMAPS_URL = "https://landsmaps.dol.go.th"
+ASSESS_PRICE_URL = "https://assessprice.treasury.go.th"
+ZONING_URL = "https://landuseplan.dpt.go.th/main/"
 DEFAULT_GMAP_URL = "https://maps.google.com/?q=14.0722,100.6015"
 
-# Rough bounding box of Thailand (lat_min, lat_max, lon_min, lon_max)
 THAI_BOUNDS = (5.6, 20.5, 97.3, 105.7)
 
 DETACHED = "Detached House Project (โครงการบ้านเดี่ยว)"
@@ -38,55 +55,32 @@ MALL = "Community Mall (คอมมูนิตี้มอลล์)"
 SHOP = "Roadside Commercial Shop (อาคารพาณิชย์ริมถนน)"
 TYPOLOGIES = [DETACHED, MALL, SHOP]
 
-# Allowed construction & soft-cost range per typology (THB) - limits unrealistic input.
-# Edit these to match your own cost benchmarks.
-CONSTRUCTION_RANGE = {
-    DETACHED: (20_000_000, 200_000_000),
-    MALL: (30_000_000, 400_000_000),
-    SHOP: (10_000_000, 100_000_000),
+CONSTRUCTION_BENCHMARKS = {
+    DETACHED: {"min": 120_000_000, "max": 250_000_000, "default": 180_000_000},
+    MALL: {"min": 60_000_000, "max": 150_000_000, "default": 100_000_000},
+    SHOP: {"min": 18_000_000, "max": 40_000_000, "default": 28_000_000},
 }
 
-# Zoning color -> (description, FAR, OSR %)  [demo values]
 ZONES = {
     "Yellow": ("Low-density residential", 2.0, 30.0),
     "Orange": ("Medium-density residential", 4.0, 15.0),
     "Red": ("Commercial", 7.0, 10.0),
 }
 
-BASE_APPRECIATION = 0.025  # base annual appreciation added to local population growth
-
-# SAMPLE DATA - replace with your own backtesting dataset.
-# Fields: id, typology, pop_density (per sq.km), AADT (veh/day), frontage (m),
-#         holding_years, total_value_growth_pct
-BACKTEST_PROJECTS = [
-    ("Sample D-1", DETACHED, 3800, 36000, 28, 5, 32.0),
-    ("Sample D-2", DETACHED, 5200, 48000, 35, 4, 24.0),
-    ("Sample D-3", DETACHED, 2600, 22000, 25, 6, 41.0),
-    ("Sample D-4", DETACHED, 6100, 61000, 40, 3, 15.0),
-    ("Sample M-1", MALL, 4500, 55000, 60, 5, 38.0),
-    ("Sample M-2", MALL, 3200, 40000, 45, 4, 21.0),
-    ("Sample M-3", MALL, 6800, 72000, 70, 6, 55.0),
-    ("Sample M-4", MALL, 2800, 30000, 38, 5, 18.0),
-    ("Sample S-1", SHOP, 4800, 52000, 30, 4, 29.0),
-    ("Sample S-2", SHOP, 3500, 38000, 24, 5, 22.0),
-    ("Sample S-3", SHOP, 6200, 68000, 36, 3, 19.0),
-    ("Sample S-4", SHOP, 2900, 28000, 28, 6, 26.0),
-]
+BASE_APPRECIATION = 0.025
 
 # ==========================================
-# 3. GOOGLE MAPS LINK PARSING
+# 3. HELPER FUNCTIONS & LOCATION PARSER
 # ==========================================
 COORD_PATTERNS = [
-    r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)",                               # exact pin
-    r"@(-?\d+\.\d+),(-?\d+\.\d+)",                                   # map viewport centre
-    r"[?&](?:q|ll|query|destination)=(-?\d+\.\d+),[\s+]*(-?\d+\.\d+)",  # query params
-    r"/place/(-?\d+\.\d+),(-?\d+\.\d+)",                             # place by coordinates
+    r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)",
+    r"@(-?\d+\.\d+),(-?\d+\.\d+)",
+    r"[?&](?:q|ll|query|destination)=(-?\d+\.\d+),[\s+]*(-?\d+\.\d+)",
+    r"/place/(-?\d+\.\d+),(-?\d+\.\d+)",
 ]
-
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def resolve_short_url(url):
-    """Follow redirects of short Google Maps links (maps.app.goo.gl / goo.gl/maps)."""
     try:
         req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urlopen(req, timeout=6) as resp:
@@ -94,13 +88,10 @@ def resolve_short_url(url):
     except Exception:
         return url
 
-
 def is_google_maps_link(url):
     return bool(re.search(r"google\.|goo\.gl|maps\.app", url.lower()))
 
-
 def parse_google_map_url(url):
-    """Extract (lat, lon) from a Google Maps link. Returns None if not found."""
     url = (url or "").strip()
     if not url:
         return None
@@ -113,28 +104,17 @@ def parse_google_map_url(url):
             return float(match.group(1)), float(match.group(2))
     return None
 
-
 def in_thailand(lat, lon):
     lat_min, lat_max, lon_min, lon_max = THAI_BOUNDS
     return lat_min <= lat <= lat_max and lon_min <= lon <= lon_max
 
-
-# ==========================================
-# 4. SITE DATA (DEMO - deterministic per location)
-# ==========================================
 def fetch_lands_maps_data(lat, lon):
-    """
-    DEMO values for the parcel. Not yet connected to live LandsMaps (กรมที่ดิน) data;
-    values are generated deterministically from the coordinates so they stay stable between reruns.
-    Replace this function with a real lookup when a data source is available.
-    """
     rng = random.Random(f"landsmaps|{lat:.4f},{lon:.4f}")
     zone = rng.choice(list(ZONES.keys()))
     zone_desc, far, osr = ZONES[zone]
     market = rng.randrange(40_000, 200_001, 5_000)
     treasury = round(market * rng.uniform(0.45, 0.70), -3)
     return {
-        "status": "Demo data 🟡",
         "parcel_number": f"Chanote No. {rng.randint(10000, 99999)}",
         "land_size_sqwah": float(rng.randrange(400, 1601, 50)),
         "frontage_m": float(rng.randint(20, 60)),
@@ -146,9 +126,7 @@ def fetch_lands_maps_data(lat, lon):
         "osr": osr,
     }
 
-
 def fetch_spatial_context(lat, lon):
-    """DEMO road / feeder / socio-economic / flood-history variables, deterministic per location."""
     rng = random.Random(f"spatial|{lat:.4f},{lon:.4f}")
     n_floods = rng.choice([0, 0, 1, 1, 2, 3])
     flood_years = sorted(rng.sample(range(2016, 2026), n_floods))
@@ -156,7 +134,6 @@ def fetch_spatial_context(lat, lon):
     aadt = rng.randrange(15_000, 80_001, 1_000)
     pop_density = rng.randrange(1_500, 9_001, 100)
     return {
-        # road
         "highway_km": round(rng.uniform(0.5, 5.0), 1),
         "cbd_mins": rng.randint(20, 70),
         "intersection_km": round(rng.uniform(0.2, 3.0), 1),
@@ -166,12 +143,10 @@ def fetch_spatial_context(lat, lon):
         "uturn_km": round(rng.uniform(0.2, 2.5), 1),
         "aadt": aadt,
         "peak_pcu": int(aadt * rng.uniform(0.08, 0.11)),
-        # feeder / system density (KDE index 0-100)
         "taxi_kde": rng.randint(5, 95),
         "van_kde": rng.randint(5, 95),
         "bus_kde": rng.randint(5, 95),
         "bus_stops_1km": rng.randint(2, 15),
-        # socio-economic & amenities
         "pop_density": pop_density,
         "household_density": int(pop_density * rng.uniform(0.33, 0.42)),
         "pop_growth_pct": round(rng.uniform(1.0, 5.0), 1),
@@ -179,455 +154,284 @@ def fetch_spatial_context(lat, lon):
         "market_km": round(rng.uniform(0.3, 4.0), 1),
         "school_km": round(rng.uniform(0.3, 4.0), 1),
         "hospital_km": round(rng.uniform(0.8, 8.0), 1),
-        # market / law
         "launch_price_sqm": rng.randrange(35_000, 90_001, 1_000),
         "setback_m": rng.choice([6, 8, 10, 12]),
-        # risk history: (year, max depth in cm)
         "flood_events": [(y, rng.randrange(10, 80, 5)) for y in flood_years],
     }
-
-
-RISK_GROUP = "Risk history (flood table)"
-
-
-@st.cache_data(show_spinner=False)
-def load_variable_catalog():
-    """Variable catalogue (group, name, units, criteria, assumption) from variables.csv."""
-    path = Path(__file__).with_name("variables.csv")
-    if not path.exists():
-        return None
-    return pd.read_csv(path, dtype=str, encoding="utf-8-sig").fillna("")
-
-
-def kde_label(index):
-    return "High" if index >= 67 else "Medium" if index >= 34 else "Low"
-
-
-def detect_variable_values(lands, sp):
-    """Map catalogue keys (variables.csv `key` column) to the value detected for this site."""
-    n_floods = len(sp["flood_events"])
-    max_depth = max((d for _, d in sp["flood_events"]), default=0)
-    return {
-        "road_network_dist": f"{sp['highway_km']} km",
-        "network_travel_time": f"{sp['cbd_mins']} mins",
-        "intersection_dist": f"{sp['intersection_km']} km",
-        "network_centrality": f"{sp['centrality_index']} / 100 (closeness index)",
-        "road_geometry": f"{sp['lanes']} lanes / {sp['row_width_m']} m right-of-way",
-        "uturn_dist": f"{sp['uturn_km']} km",
-        "vehicle_volume": f"{sp['aadt']:,} vehicles/day / {sp['peak_pcu']:,} PCU/hr",
-        "taxi_density": f"{kde_label(sp['taxi_kde'])} (KDE {sp['taxi_kde']})",
-        "van_density": f"{kde_label(sp['van_kde'])} (KDE {sp['van_kde']})",
-        "bus_density": f"{kde_label(sp['bus_kde'])} (KDE {sp['bus_kde']}), {sp['bus_stops_1km']} stops within 1 km",
-        "pop_density": f"{sp['pop_density']:,} people/km² / {sp['household_density']:,} households/km²",
-        "pop_growth": f"{sp['pop_growth_pct']}% per year",
-        "mall_market_dist": f"Mall {sp['mall_km']} km / market {sp['market_km']} km",
-        "school_hospital_dist": f"School {sp['school_km']} km / hospital {sp['hospital_km']} km",
-        "parcel_size": f"{lands['land_size_sqwah']:,.0f} sq.wah",
-        "frontage": f"{lands['frontage_m']:.0f} m",
-        "launch_prices": f"฿{sp['launch_price_sqm']:,.0f} /sq.m",
-        "zoning": f"{lands['zoning_color']} ({lands['zoning_desc']})",
-        "far_osr": f"FAR {lands['far']} / OSR {lands['osr']}%",
-        "setback": f"{sp['setback_m']} m",
-        "flood_freq": f"{n_floods} event(s) in 10 years",
-        "flood_depth": f"{max_depth} cm" if n_floods else "No flood recorded",
-    }
-
-
-def flood_history_table(sp):
-    if sp["flood_events"]:
-        table = pd.DataFrame(
-            [(str(y), "Flooding", f"{d} cm") for y, d in sp["flood_events"]],
-            columns=["Year", "Event", "Max water depth"],
-        )
-    else:
-        table = pd.DataFrame(
-            [("-", "No recorded flood event", "-")],
-            columns=["Year", "Event", "Max water depth"],
-        )
-    return table
-
-
-# ==========================================
-# 5. HELPERS
-# ==========================================
-def money_input(label, default, key, min_value=None, max_value=None, hint=None):
-    """Sidebar text input that shows thousands separators and validates the range."""
-    raw = st.sidebar.text_input(label, value=f"{default:,.0f}", key=key)
-    if hint:
-        st.sidebar.caption(hint)
-    try:
-        value = float(re.sub(r"[,\s฿]", "", raw))
-    except ValueError:
-        st.sidebar.error("Please enter a number, e.g. 45,000,000")
-        return float(default)
-    if min_value is not None and value < min_value:
-        st.sidebar.warning(f"Below allowed range - using ฿{min_value:,.0f}")
-        value = float(min_value)
-    elif max_value is not None and value > max_value:
-        st.sidebar.warning(f"Above allowed range - using ฿{max_value:,.0f}")
-        value = float(max_value)
-    elif value <= 0:
-        st.sidebar.warning("Value must be greater than 0")
-        return float(default)
-    st.sidebar.caption(f"= ฿{value:,.0f}")
-    return value
-
 
 def clamp(x, lo=0.0, hi=10.0):
     return max(lo, min(hi, x))
 
-
 def score_typologies(lands, sp):
-    """Rule-based viability score (0-10) for each of the three typologies."""
     zone = lands["zoning_color"]
     residential = zone in ("Yellow", "Orange")
     commercial = zone in ("Orange", "Red")
     flood_pen = 0.5 * len(sp["flood_events"])
 
-    detached = (5.0 + (2.0 if residential else 0.0)
-                + 1.5 * min(sp["pop_growth_pct"] / 4.0, 1.0) - flood_pen)
-    mall = (4.0 + (2.0 if lands["land_size_sqwah"] >= 800 else 0.0)
-            + 1.5 * min(sp["pop_density"] / 5000.0, 1.0)
-            + (1.0 if commercial else 0.0)
-            + (1.0 if sp["mall_km"] >= 1.5 else 0.0) - 0.5 * flood_pen)
-    shop = (4.0 + (2.5 if lands["frontage_m"] >= 30 else 0.5)
-            + 2.0 * min(sp["aadt"] / 50000.0, 1.0)
-            + (1.0 if commercial else 0.0) - 0.5 * flood_pen)
+    detached = (5.0 + (2.0 if residential else 0.0) + 1.5 * min(sp["pop_growth_pct"] / 4.0, 1.0) - flood_pen)
+    mall = (4.0 + (2.0 if lands["land_size_sqwah"] >= 800 else 0.0) + 1.5 * min(sp["pop_density"] / 5000.0, 1.0) + (1.0 if commercial else 0.0) - 0.5 * flood_pen)
+    shop = (4.0 + (2.5 if lands["frontage_m"] >= 30 else 0.5) + 2.0 * min(sp["aadt"] / 50000.0, 1.0) + (1.0 if commercial else 0.0) - 0.5 * flood_pen)
     return {DETACHED: clamp(detached), MALL: clamp(mall), SHOP: clamp(shop)}
 
-
 def find_similar_backtests(typology, lands, sp, top_n=3):
-    """Closest backtested projects of the same typology (by traffic, density and frontage)."""
+    df_all = db_manager.fetch_historical_projects(typology)
+    if df_all.empty:
+        return pd.DataFrame()
+    
     rows = []
-    for pid, typ, pop, aadt, frontage, years, growth in BACKTEST_PROJECTS:
-        if typ != typology:
-            continue
+    for _, row in df_all.iterrows():
         dist = math.sqrt(
-            ((pop - sp["pop_density"]) / 3000.0) ** 2
-            + ((aadt - sp["aadt"]) / 30000.0) ** 2
-            + ((frontage - lands["frontage_m"]) / 20.0) ** 2
+            ((row["pop_density"] - sp["pop_density"]) / 3000.0) ** 2
+            + ((row["aadt"] - sp["aadt"]) / 30000.0) ** 2
+            + ((row["frontage_m"] - lands["frontage_m"]) / 20.0) ** 2
         )
-        annual = ((1 + growth / 100.0) ** (1.0 / years) - 1) * 100
         rows.append({
-            "Project": pid,
-            "Population density": pop,
-            "AADT": aadt,
-            "Frontage (m)": frontage,
-            "Holding years": years,
-            "Total value growth (%)": growth,
-            "Annualized growth (%)": round(annual, 2),
+            "Project": row["project_name"],
+            "Population density": row["pop_density"],
+            "AADT": row["aadt"],
+            "Frontage (m)": row["frontage_m"],
+            "Holding years": row["holding_years"],
+            "Total value growth (%)": row["total_value_growth_pct"],
+            "Annualized growth (%)": row["annualized_growth_pct"],
             "_dist": dist,
         })
     rows.sort(key=lambda r: r["_dist"])
-    df = pd.DataFrame(rows[:top_n])
-    return df.drop(columns=["_dist"]) if not df.empty else df
-
+    res_df = pd.DataFrame(rows[:top_n])
+    return res_df.drop(columns=["_dist"]) if not res_df.empty else res_df
 
 # ==========================================
-# 6. SIDEBAR: 1. GOOGLE MAPS LINK
+# 4. SIDEBAR INPUT CONTROLS
 # ==========================================
-st.sidebar.header("📍 1. Parcel Input")
+st.sidebar.header("📍 1. Parcel Location Input")
 gmap_url = st.sidebar.text_input(
-    "Paste Google Maps link (Thailand only):",
+    "Paste Google Maps Link:",
     value=DEFAULT_GMAP_URL,
-    help="Share link or address-bar link from Google Maps. Land along a suburban road, e.g. Krungthep Kreetha Rd.",
+    help="Paste Google Maps URL representing land in Thailand.",
 )
-st.sidebar.caption("Only Google Maps links are accepted. Land along suburban roads in Thailand.")
 
 if not is_google_maps_link(gmap_url):
-    st.sidebar.error("Please paste a Google Maps link.")
-    st.info("👈 Paste a Google Maps link of the land in the sidebar to start the analysis.")
+    st.sidebar.error("Please paste a valid Google Maps link.")
     st.stop()
 
 coords = parse_google_map_url(gmap_url)
 if coords is None:
-    st.sidebar.error("Could not find coordinates in this link. Try the full link from the browser address bar, or a link that contains the pin location.")
-    st.info("👈 Could not read a location from the link.")
+    st.sidebar.error("Could not extract coordinates from link.")
     st.stop()
 
 lat, lon = coords
 if not in_thailand(lat, lon):
-    st.sidebar.error(f"Location ({lat:.4f}, {lon:.4f}) is outside Thailand. This model covers Thailand only.")
-    st.info("👈 Please use a location in Thailand.")
+    st.sidebar.error(f"Location ({lat:.4f}, {lon:.4f}) is outside Thailand.")
     st.stop()
 
-st.sidebar.success(f"Detected location: Lat {lat:.4f}, Lon {lon:.4f}")
+st.sidebar.success(f"Location Detected: Lat {lat:.4f}, Lon {lon:.4f}")
 
 lands_data = fetch_lands_maps_data(lat, lon)
 spatial_data = fetch_spatial_context(lat, lon)
-site_key = f"{lat:.4f}_{lon:.4f}"
-
-# ==========================================
-# 7. SIDEBAR: 2. TYPOLOGY, 3. FEASIBILITY INPUTS
-# ==========================================
-st.sidebar.markdown("---")
-st.sidebar.header("🏗️ 2. Real Estate Typology Selection")
-specific_typology = st.sidebar.selectbox("Select Intended Real Estate Development Type:", TYPOLOGIES)
 
 st.sidebar.markdown("---")
-st.sidebar.header("💵 3. Developer Feasibility Inputs")
+st.sidebar.header("📐 2. Land Input Parameters")
 
-form_key = f"{site_key}_{TYPOLOGIES.index(specific_typology)}"
-c_min, c_max = CONSTRUCTION_RANGE[specific_typology]
+# Land Size Input
+input_land_size = st.sidebar.number_input(
+    "Land Size (Sq.Wah):",
+    min_value=10.0,
+    max_value=100000.0,
+    value=float(lands_data["land_size_sqwah"]),
+    step=10.0,
+    help="Check actual land area from LandsMaps portal.",
+)
+st.sidebar.markdown(f"👉 *Find land size at:* [{LANDSMAPS_URL}]({LANDSMAPS_URL})")
 
-dev_land_cost = money_input(
+# Purchase Price Input
+input_land_cost_sqw = st.sidebar.number_input(
     "Land Purchase Cost (THB/Sq.Wah):",
-    lands_data["market_price"],
-    key=f"land_{form_key}",
+    min_value=1000.0,
+    max_value=5000000.0,
+    value=float(lands_data["market_price"]),
+    step=1000.0,
+    help="Find official appraisal price from Treasury Department portal.",
 )
-dev_construction_cost = money_input(
-    "Expected Construction & Soft Cost (THB):",
-    round((c_min + c_max) / 2, -6),
-    key=f"construction_{form_key}",
-    min_value=c_min,
-    max_value=c_max,
-    hint=f"Allowed range for this type: ฿{c_min:,.0f} – ฿{c_max:,.0f}",
+st.sidebar.markdown(f"👉 *Find official appraisal price at:* [{ASSESS_PRICE_URL}]({ASSESS_PRICE_URL})")
+
+# Zoning Input
+input_zoning = st.sidebar.selectbox(
+    "Zoning Code / Color:",
+    options=list(ZONES.keys()),
+    index=list(ZONES.keys()).index(lands_data["zoning_color"]),
+    help="Verify land zoning regulations from DPT portal.",
+)
+st.sidebar.markdown(f"👉 *Verify zoning regulations at:* [{ZONING_URL}]({ZONING_URL})")
+
+# Override land parameters with user inputs
+lands_data["land_size_sqwah"] = input_land_size
+lands_data["market_price"] = input_land_cost_sqw
+lands_data["zoning_color"] = input_zoning
+lands_data["zoning_desc"], lands_data["far"], lands_data["osr"] = ZONES[input_zoning]
+
+st.sidebar.markdown("---")
+st.sidebar.header("🏗️ 3. Project Typology & Construction")
+
+selected_typology = st.sidebar.selectbox("Select Real Estate Typology:", TYPOLOGIES)
+benchmarks = CONSTRUCTION_BENCHMARKS[selected_typology]
+
+st.sidebar.caption(f"**Expected Range for {selected_typology}:**\n฿{benchmarks['min']:,} - ฿{benchmarks['max']:,}")
+
+input_construction_cost = st.sidebar.number_input(
+    "Expected Construction Cost (THB):",
+    min_value=float(benchmarks["min"]),
+    max_value=float(benchmarks["max"]),
+    value=float(benchmarks["default"]),
+    step=1000000.0,
 )
 
-land_size = lands_data["land_size_sqwah"]
-total_land_cost = land_size * dev_land_cost
-total_project_cost = total_land_cost + dev_construction_cost
+total_land_cost = input_land_size * input_land_cost_sqw
+total_project_cost = total_land_cost + input_construction_cost
 
-dev_expected_income = money_input(
-    "Expected Gross Project Revenue (THB):",
-    round(total_project_cost * 1.25, -6),
-    key=f"revenue_{form_key}",
+input_expected_revenue = st.sidebar.number_input(
+    "Expected Gross Revenue (THB):",
+    min_value=float(total_project_cost * 0.5),
+    max_value=float(total_project_cost * 3.0),
+    value=float(round(total_project_cost * 1.30, -6)),
+    step=1000000.0,
 )
-dev_timeline_years = st.sidebar.slider("Development & Sales Timeline (Years):", min_value=1, max_value=10, value=3)
+
+dev_timeline_years = st.sidebar.slider("Development Timeline (Years):", min_value=1, max_value=10, value=3)
 
 # ==========================================
-# 8. LOCATION & LANDSMAPS PANEL
+# 5. DASHBOARD MAIN DISPLAY
 # ==========================================
-st.subheader("📍 Parcel Location & Land Data")
-
+st.subheader("📍 Parcel Location Summary")
 col_map, col_info = st.columns([3, 2])
 with col_map:
-    components.iframe(f"https://maps.google.com/maps?q={lat},{lon}&z=17&output=embed", height=360)
+    components.iframe(f"https://maps.google.com/maps?q={lat},{lon}&z=17&output=embed", height=320)
 with col_info:
-    st.metric("1. Status", lands_data["status"])
-    st.metric("2. Land Size", f"{land_size:,.0f} Sq.Wah")
-    st.metric("3. Zoning Code", lands_data["zoning_color"], lands_data["zoning_desc"], delta_color="off")
-    btn1, btn2 = st.columns(2)
-    btn1.link_button("🗺️ Open in Google Maps", gmap_url)
-    btn2.link_button("📑 Check on LandsMaps", LANDSMAPS_URL)
-    st.caption("Parcel values are demo data until a live LandsMaps lookup is connected. Verify the parcel on LandsMaps (กรมที่ดิน).")
+    st.metric("Total Land Purchase Value", f"฿{total_land_cost:,.0f}")
+    st.metric("Total Initial Project Budget", f"฿{total_project_cost:,.0f}")
+    st.metric("Selected Zoning", f"{lands_data['zoning_color']}", lands_data['zoning_desc'], delta_color="off")
+    st.link_button("🗺️ Open Location in Google Maps", gmap_url)
 
-# ==========================================
-# 9. AUTO-DETECTED VARIABLES (SHOW / HIDE)
-# ==========================================
-st.subheader("🧭 Auto-Detected Variables for Analysis")
-st.caption("Variables come from variables.csv (based on the Variables.xlsx catalogue). Values are detected from the Google Maps location.")
-
-catalog = load_variable_catalog()
-if catalog is None:
-    st.warning("variables.csv was not found next to app.py, so the variable tables cannot be shown.")
-else:
-    detected = detect_variable_values(lands_data, spatial_data)
-    catalog = catalog.assign(detected=catalog["key"].map(detected).fillna("n/a"))
-    group_names = list(dict.fromkeys(catalog["group"]))
-    visible_groups = st.multiselect("Variable groups to show:", group_names, default=group_names)
-
-    export_frames = {}
-    for name in visible_groups:
-        grp = catalog[catalog["group"] == name]
-        with st.expander(f"{name} ({len(grp)} variables)", expanded=True):
-            options = grp["variable"].tolist()
-            chosen = st.multiselect("Variables to show:", options, default=options, key=f"vars_{name}")
-            view = grp[grp["variable"].isin(chosen)][["variable", "detected", "units", "criteria", "assumption"]]
-            view = view.rename(columns={
-                "variable": "Variable", "detected": "Detected value", "units": "Units",
-                "criteria": "Criteria", "assumption": "Assumption",
-            })
-            if view.empty:
-                st.caption("All variables in this group are hidden.")
-            else:
-                st.table(view.set_index("Variable"))
-                export_frames[name] = view
-            if name == RISK_GROUP:
-                st.markdown("**Flood event history (last 10 years)**")
-                flood_table = flood_history_table(spatial_data)
-                st.table(flood_table.set_index("Year"))
-                export_frames["Flood history"] = flood_table
-
-    if export_frames:
-        if importlib.util.find_spec("openpyxl") is not None:
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-                for sheet, df in export_frames.items():
-                    df.to_excel(writer, sheet_name=sheet[:31], index=False)
-            st.download_button(
-                "⬇️ Download visible variables (Excel)",
-                data=buffer.getvalue(),
-                file_name="site_variables.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            )
-        else:
-            # Fallback when openpyxl is not installed: one CSV (opens in Excel / Google Sheets)
-            frames = [df.assign(Group=sheet) for sheet, df in export_frames.items() if "Variable" in df.columns]
-            csv_data = pd.concat(frames, ignore_index=True).to_csv(index=False).encode("utf-8-sig")
-            st.download_button(
-                "⬇️ Download visible variables (CSV)",
-                data=csv_data,
-                file_name="site_variables.csv",
-                mime="text/csv",
-            )
-    else:
-        st.caption("All variables are hidden.")
-
-st.markdown("---")
-
-# ==========================================
-# 10. MODEL COMPUTATIONS
-# ==========================================
-# A. Feasibility
-net_profit = dev_expected_income - total_project_cost
+# Model Computations
+net_profit = input_expected_revenue - total_project_cost
 roi_pct = (net_profit / total_project_cost) * 100 if total_project_cost > 0 else 0
-annualized_irr = ((dev_expected_income / total_project_cost) ** (1 / dev_timeline_years) - 1) * 100 if total_project_cost > 0 else 0
-
-# B. Capital gain: Year 1 project value = total project cost, later years grow at the annual rate
+annualized_irr = ((input_expected_revenue / total_project_cost) ** (1 / dev_timeline_years) - 1) * 100 if total_project_cost > 0 else 0
 annual_growth = (spatial_data["pop_growth_pct"] / 100) + BASE_APPRECIATION
-
 
 def project_value(year):
     return total_project_cost * ((1 + annual_growth) ** (year - 1))
 
-
-# C. Suitability scoring (3 typologies only)
 typology_scores = score_typologies(lands_data, spatial_data)
-user_selected_score = typology_scores[specific_typology]
+user_selected_score = typology_scores[selected_typology]
 hbu_rankings = sorted(typology_scores.items(), key=lambda x: x[1], reverse=True)
 
-# ==========================================
-# 11. DASHBOARD OUTPUTS
-# ==========================================
-st.header("📊 Model Outputs & Predictive Analytics")
+st.markdown("---")
 
-tab1, tab2, tab3 = st.tabs(["1. Capital Gain Predictor", "2. Developer Feasibility & P&L", "3. Data Reasons & Proof"])
+# DASHBOARD TABS
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📈 Capital Gain Predictor", 
+    "💵 Developer Feasibility", 
+    "📑 Data Reasons & Proof", 
+    "💾 Backend Data Manager"
+])
 
-# ------------------------------------------
 # TAB 1: CAPITAL GAIN PREDICTOR
-# ------------------------------------------
 with tab1:
-    st.subheader("📈 Land & Project Value Projection")
+    st.subheader("📈 Capital Gain & Project Value Growth")
+    
+    c1, c2 = st.columns(2)
+    c1.metric("Land Acquisition Value", f"฿{total_land_cost:,.0f}", f"฿{input_land_cost_sqw:,.0f} / Sq.Wah")
+    c2.metric("Base Year 1 Project Value", f"฿{total_project_cost:,.0f}", "Land + Construction")
 
-    col_cg1, col_cg2 = st.columns(2)
-    col_cg1.metric("Current Land Acquisition Value", f"฿{total_land_cost:,.0f}")
-    col_cg1.caption(f"฿{dev_land_cost:,.0f} per Sq.Wah × {land_size:,.0f} Sq.Wah (LandsMaps land size)")
-    col_cg2.metric("Project Value – Year 1", f"฿{total_project_cost:,.0f}")
-    col_cg2.caption(f"Total land cost ฿{total_land_cost:,.0f} + construction cost ฿{dev_construction_cost:,.0f}")
+    proj_year = st.slider("Select Horizon (Years):", min_value=1, max_value=15, value=5)
+    future_val = project_value(proj_year)
+    st.info(f"💡 Projected Value at Year {proj_year}: **฿{future_val:,.0f}** ({(future_val/total_project_cost - 1)*100:+.1f}% Total Growth)")
 
-    selected_year = st.slider("Select projection year:", min_value=1, max_value=15, value=5)
-    selected_value = project_value(selected_year)
-    st.info(
-        f"💡 Projected project value at Year {selected_year}: **฿{selected_value:,.0f}** "
-        f"({(selected_value / total_project_cost - 1) * 100:+.1f}% vs Year 1)"
-    )
-
-    years = list(range(1, 16))
-    df_chart = pd.DataFrame({"Year": years, "Project Value (THB)": [project_value(y) for y in years]})
-    fig = px.line(df_chart, x="Year", y="Project Value (THB)", markers=True, title="Projected Project Value by Year")
-    fig.add_scatter(
-        x=[selected_year], y=[selected_value], mode="markers",
-        marker=dict(size=12, color="red"), name=f"Year {selected_year}",
-    )
+    years_range = list(range(1, 16))
+    df_chart = pd.DataFrame({"Year": years_range, "Project Value (THB)": [project_value(y) for y in years_range]})
+    fig = px.line(df_chart, x="Year", y="Project Value (THB)", markers=True, title="Projected Value Curve")
+    fig.add_scatter(x=[proj_year], y=[future_val], mode="markers", marker=dict(size=12, color="red"), name=f"Year {proj_year}")
     fig.update_yaxes(tickformat=",.0f")
-    st.plotly_chart(fig)
-    st.caption(
-        f"Assumed annual growth: {annual_growth * 100:.1f}% "
-        f"(local population growth {spatial_data['pop_growth_pct']}% + {BASE_APPRECIATION * 100:.1f}% base appreciation)."
-    )
+    st.plotly_chart(fig, use_container_width=True)
 
-# ------------------------------------------
-# TAB 2: DEVELOPER FEASIBILITY & PNL
-# ------------------------------------------
+# TAB 2: DEVELOPER FEASIBILITY
 with tab2:
-    st.subheader(f"🏗️ Feasibility Analysis for Selected Typology: **{specific_typology}**")
-
-    score_col = "green" if user_selected_score >= 8.0 else "orange" if user_selected_score >= 6.0 else "red"
-    st.markdown(f"### Location Viability Score: <span style='color:{score_col}'>{user_selected_score:.1f} / 10.0</span>", unsafe_allow_html=True)
+    st.subheader(f"🏗️ Feasibility Analysis: {selected_typology}")
+    
+    st.markdown(f"### Location Viability Score: **{user_selected_score:.1f} / 10.0**")
     st.progress(user_selected_score / 10.0)
 
-    st.markdown("---")
-    col_f1, col_f2 = st.columns([1, 1])
-
-    with col_f1:
-        st.subheader("💰 Pro-Forma Feasibility & P&L Statement")
-        pnl_df = pd.DataFrame({
-            "Financial Indicator": [
-                "Total Expected Revenue (Income)",
-                "- Land Acquisition Cost",
-                "- Construction & Soft Costs",
-                "Net Development Profit",
-                "Return on Investment (ROI %)",
-                "Estimated Annualized IRR (%)"
-            ],
-            "Value": [
-                f"฿{dev_expected_income:,.0f}",
+    f1, f2 = st.columns(2)
+    with f1:
+        st.subheader("💰 Pro-Forma Statement")
+        pnl = pd.DataFrame({
+            "Metric": ["Expected Revenue", "- Land Cost", "- Construction Cost", "Net Profit", "ROI (%)", "Annualized IRR (%)"],
+            "Amount": [
+                f"฿{input_expected_revenue:,.0f}",
                 f"-฿{total_land_cost:,.0f}",
-                f"-฿{dev_construction_cost:,.0f}",
+                f"-฿{input_construction_cost:,.0f}",
                 f"฿{net_profit:,.0f}",
                 f"{roi_pct:.2f}%",
                 f"{annualized_irr:.2f}%"
             ]
         })
-        st.table(pnl_df)
+        st.table(pnl)
 
-        if net_profit > 0:
-            st.success("✅ Feasibility Assessment: **VIABLE** (Positive ROI & Net Margin)")
-        else:
-            st.error("❌ Feasibility Assessment: **NON-VIABLE** (Negative Net Profit)")
+    with f2:
+        st.subheader("🏆 Highest & Best Use (HBU) Ranking")
+        hbu_df = pd.DataFrame(hbu_rankings, columns=["Typology", "Score (0-10)"])
+        hbu_df["Score (0-10)"] = hbu_df["Score (0-10)"].round(1)
+        st.dataframe(hbu_df, hide_index=True, use_container_width=True)
 
-    with col_f2:
-        st.subheader("🏆 Highest and Best Use (HBU) Recommendation Ranking")
-        hbu_df = pd.DataFrame(hbu_rankings, columns=["Real Estate Typology", "Viability Score (out of 10)"])
-        hbu_df["Viability Score (out of 10)"] = hbu_df["Viability Score (out of 10)"].round(1)
-        st.dataframe(hbu_df, hide_index=True)
-        st.caption(f"Best use for this site: **{hbu_rankings[0][0]}**")
-
-# ------------------------------------------
 # TAB 3: DATA REASONS & PROOF
-# ------------------------------------------
 with tab3:
-    st.subheader("📑 Data Justifications and Spatial Proof")
-
-    premium = lands_data["market_price"] / lands_data["treasury_price"]
-    n_floods = len(spatial_data["flood_events"])
+    st.subheader("📑 Analytical Reasons & Data Justifications")
     st.markdown(f"""
-    1. **Land Data (LandsMaps – demo values):**
-       * Parcel **{lands_data['parcel_number']}**, land size **{land_size:,.0f} Sq.Wah**, frontage **{lands_data['frontage_m']:.0f} m**.
-       * Treasury appraisal **฿{lands_data['treasury_price']:,.0f}/sqw** vs market asking **฿{lands_data['market_price']:,.0f}/sqw** ({premium:.1f}× market premium).
-
-    2. **Road Network & Accessibility:**
-       * **{spatial_data['highway_km']} km** from the highway, **{spatial_data['cbd_mins']} mins** to CBD, **{spatial_data['lanes']}-lane** road with **{spatial_data['aadt']:,} vehicles/day** (AADT).
-
-    3. **Demographic & Socio-Economic Growth:**
-       * Population growth **{spatial_data['pop_growth_pct']}%** per year and density **{spatial_data['pop_density']:,}/sq.km** drive housing and retail demand.
-       * **{spatial_data['mall_km']} km** to the nearest mall, **{spatial_data['school_km']} km** to the nearest school, **{spatial_data['hospital_km']} km** to the nearest hospital.
-
-    4. **Statutory Zoning & Legal Upper Bound:**
-       * Zone **{lands_data['zoning_color']}** ({lands_data['zoning_desc']}), FAR **{lands_data['far']}**, OSR **{lands_data['osr']}%**.
-       * These set the ceiling for unit density and gross buildable floor area.
-
-    5. **Flood Risk History:**
-       * **{n_floods}** recorded flood event(s) in the last 10 years, which lowers the viability score.
+    1. **Land & Zoning Inputs:**
+       * **Size:** {input_land_size:,.0f} Sq.Wah | **Acquisition Rate:** ฿{input_land_cost_sqw:,.0f}/Sq.Wah.
+       * **Zoning:** {lands_data['zoning_color']} zone ({lands_data['zoning_desc']}) provides FAR of {lands_data['far']} and OSR of {lands_data['osr']}%.
+    
+    2. **Spatial Accessibility:**
+       * Located {spatial_data['highway_km']} km from primary arterial roads with {spatial_data['lanes']} lanes and AADT of {spatial_data['aadt']:,} vehicles/day.
+    
+    3. **Demographics & Growth:**
+       * Surrounding population density of {spatial_data['pop_density']:,} people/sq.km with annual population growth rate of {spatial_data['pop_growth_pct']}%.
     """)
 
     st.markdown("---")
-    st.subheader("🕰️ Backtesting – Similar Past Projects")
-    st.warning("The backtest records below are SAMPLE DATA for the prototype. Replace `BACKTEST_PROJECTS` in app.py with your real backtesting results.")
-
-    similar = find_similar_backtests(specific_typology, lands_data, spatial_data)
-    if similar.empty:
-        st.caption("No backtest records for this typology yet.")
+    st.subheader("🕰️ Historical Comparable Projects (Backend Memory)")
+    similar_df = find_similar_backtests(selected_typology, lands_data, spatial_data)
+    if similar_df.empty:
+        st.warning("No backend records found for this typology.")
     else:
-        typ_short = specific_typology.split(" (")[0]
-        avg_total = similar["Total value growth (%)"].mean()
-        avg_annual = similar["Annualized growth (%)"].mean()
-        st.success(
-            f"{typ_short} projects in similar areas (closest {len(similar)} by traffic, density and frontage): "
-            f"value grew about **{avg_total:.1f}%** in total, or **{avg_annual:.1f}% per year**. "
-            f"This model assumes **{annual_growth * 100:.1f}% per year** for the selected site."
-        )
-        st.dataframe(similar, hide_index=True)
+        st.dataframe(similar_df, hide_index=True, use_container_width=True)
 
-st.caption("Real Estate Feasibility & Prediction Engine v2.1 — Powered by Streamlit & Machine Learning Models")
+# TAB 4: BACKEND DATA MANAGER
+with tab4:
+    st.subheader("💾 Store Future Development Project Data")
+    st.caption("Add new historical development data to the backend database to continuously improve spatial backtesting capabilities.")
+
+    with st.form("add_project_form"):
+        p_name = st.text_input("Project Name:")
+        p_typology = st.selectbox("Typology:", TYPOLOGIES)
+        c_a, c_b = st.columns(2)
+        p_pop = c_a.number_input("Population Density (per sq.km):", value=4000)
+        p_aadt = c_b.number_input("Traffic Volume (AADT):", value=45000)
+        c_c, c_d = st.columns(2)
+        p_frontage = c_c.number_input("Frontage Width (m):", value=30.0)
+        p_years = c_d.number_input("Holding Period (Years):", value=5, min_value=1)
+        p_growth = st.number_input("Total Capital Growth (%):", value=30.0)
+        
+        submit_btn = st.form_submit_button("Save Record to Backend Database")
+        if submit_btn:
+            if p_name:
+                db_manager.add_historical_project(p_name, p_typology, p_pop, p_aadt, p_frontage, p_years, p_growth, lat, lon)
+                st.success(f"Successfully recorded '{p_name}' into database!")
+                st.rerun()
+            else:
+                st.error("Please enter a valid project name.")
+
+    st.markdown("---")
+    st.subheader("Current Backend Database Records")
+    all_records = db_manager.fetch_historical_projects()
+    st.dataframe(all_records, use_container_width=True)
+
+st.caption("Real Estate Feasibility Engine v3.0 — Modular Architecture with SQLite Persistence")
