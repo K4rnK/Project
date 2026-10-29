@@ -377,18 +377,46 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # TAB 1: CAPITAL GAIN
 with tab1:
     st.subheader("📈 Capital Gain Projection")
-    c1, c2 = st.columns(2)
-    c1.metric("Land Value", f"฿{total_land_cost:,.0f}")
-    c2.metric("Project Base Value (Year 1)", f"฿{total_project_cost:,.0f}")
+    st.caption("Forecast project valuation trajectory from post-development year to horizon timeline.")
 
-    proj_year = st.slider("Select Horizon (Years):", min_value=1, max_value=15, value=5)
+    proj_year = st.slider("Select Horizon (n Years):", min_value=1, max_value=15, value=5)
     future_val = project_value(proj_year)
-    st.info(f"💡 Projected Project Value at Year {proj_year}: **฿{future_val:,.0f}**")
+
+    c1, c2 = st.columns(2)
+    c1.metric(
+        label="Project Base Value (at year after development)", 
+        value=f"฿{total_project_cost:,.0f}",
+        help="Initial project valuation right after development completion (Year 1)."
+    )
+    c2.metric(
+        label=f"Project Base Value (at {proj_year} horizon years)", 
+        value=f"฿{future_val:,.0f}",
+        delta=f"+{((future_val - total_project_cost) / total_project_cost) * 100:.1f}% Growth",
+        help=f"Projected project valuation after holding for {proj_year} years."
+    )
+
+    st.info(f"💡 Projected Project Value at Year {proj_year} after development: **฿{future_val:,.0f}**")
 
     years_range = list(range(1, 16))
-    df_chart = pd.DataFrame({"Year": years_range, "Project Value (THB)": [project_value(y) for y in years_range]})
-    fig = px.line(df_chart, x="Year", y="Project Value (THB)", markers=True, title="Projected Value Curve")
-    fig.add_scatter(x=[proj_year], y=[future_val], mode="markers", marker=dict(size=12, color="red"), name=f"Year {proj_year}")
+    df_chart = pd.DataFrame({
+        "Year": years_range, 
+        "Project Value (THB)": [project_value(y) for y in years_range]
+    })
+    
+    fig = px.line(
+        df_chart, 
+        x="Year", 
+        y="Project Value (THB)", 
+        markers=True, 
+        title=f"Projected Value Curve (Post-Development to Year {proj_year})"
+    )
+    fig.add_scatter(
+        x=[proj_year], 
+        y=[future_val], 
+        mode="markers", 
+        marker=dict(size=14, color="red"), 
+        name=f"Year {proj_year} Horizon"
+    )
     fig.update_yaxes(tickformat=",.0f")
     st.plotly_chart(fig, use_container_width=True)
 
