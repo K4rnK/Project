@@ -104,7 +104,7 @@ def parse_google_map_url(url):
         if match:
             return float(match.group(1)), float(match.group(2))
             
-    # Default fallback for named location strings within Thailand (Center Bangkok / Pathum Thani area)
+    # Default fallback for named location strings within Thailand
     return 14.0722, 100.6015
 
 def in_thailand(lat, lon):
@@ -221,7 +221,6 @@ def score_typologies(lands, sp):
     zone = lands["zoning_color"]
     residential = zone in ("Yellow", "Orange")
     commercial = zone in ("Orange", "Red")
-    industrial = zone == "Purple"
     flood_pen = 0.5 * len(sp["flood_events"])
 
     detached = (5.0 + (2.5 if residential else 0.0) + 1.5 * min(sp["pop_growth_pct"] / 4.0, 1.0) - flood_pen)
@@ -480,7 +479,7 @@ with tab2:
         hbu_df = pd.DataFrame(hbu_rankings, columns=["Typology", "Score (0-10)"])
         st.dataframe(hbu_df, hide_index=True, use_container_width=True)
 
-# TAB 3: DATA REASONS & PROOF (ENHANCED DEMO)
+# TAB 3: DATA REASONS & PROOF
 with tab3:
     st.subheader("📑 Data Justifications & Spatial Proof")
     st.caption("Detailed analytical justifications mapped against detected site variables and historical backtest benchmarks.")
@@ -491,12 +490,12 @@ with tab3:
     * **Road Frontage:** Frontage width of **{lands_data['frontage_m']:.0f} meters** provides optimal commercial visibility and access clearance.
     
     ### 2. Accessibility & Transit Friction Proof
-    * **Road Geometry:** Situated on a **{spatial_data['lanes']}-lane roadway** with **{spatial_data['row_width_m']}m Right-of-Way (ROW)** and daily traffic volume (AADT) of **{spatial_data['aadt']:,} vehicles/day**.
-    * **Highway & CBD Connectivity:** Located **{spatial_data['highway_km']} km** from major highway ramp with an estimated **{spatial_data['cbd_mins']} mins** commute to CBD.
-    * **Feeder Transit System:** High feeder coverage with **{spatial_data['bus_stops_1km']} bus stops within 1 km** and a Taxi/Van KDE score of **{spatial_data['taxi_kde']}/100**.
+    * **Road Geometry:** Situated on a **{spatial_data['lanes']}-lane roadway** with **{spatial_data['row_width_m']}m Right-of-Way (ROW)** and daily traffic volume (AADT) of **{spatial_data['aadt']:,} vehicles/day**[cite: 1].
+    * **Highway & CBD Connectivity:** Located **{spatial_data['highway_km']} km** from major highway ramp with an estimated **{spatial_data['cbd_mins']} mins** commute to CBD[cite: 1].
+    * **Feeder Transit System:** High feeder coverage with **{spatial_data['bus_stops_1km']} bus stops within 1 km** and a Taxi/Van KDE score of **{spatial_data['taxi_kde']}/100**[cite: 1].
 
     ### 3. Demographic & Economic Momentum
-    * **Catchment Population:** Local density of **{spatial_data['pop_density']:,} people/km²** with an annual population growth rate of **{spatial_data['pop_growth_pct']}%**, creating steady organic demand for **{selected_typology}**.
+    * **Catchment Population:** Local density of **{spatial_data['pop_density']:,} people/km²** with an annual population growth rate of **{spatial_data['pop_growth_pct']}%**, creating steady organic demand for **{selected_typology}**[cite: 1].
     """)
 
     st.markdown("---")
