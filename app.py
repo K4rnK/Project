@@ -547,25 +547,25 @@ with tab1:
     with c_reason1:
         st.info(f"""
         **1. Spatial Accessibility (การเข้าถึง)**
-        * ถนนหน้าแปลงกว้าง **{spatial_data['lanes']} เลน** (ROW {spatial_data['row_width_m']} ม.)[cite: 1]
-        * ปริมาณจราจร (AADT) **{spatial_data['aadt']:,} คัน/วัน** เพิ่มการดูดซับของตลาด[cite: 1]
-        * ห่างจากทางด่วน **{spatial_data['highway_km']} กม.** เข้า CBD ใน **{spatial_data['cbd_mins']} นาที**[cite: 1]
+        * ถนนหน้าแปลงกว้าง **{spatial_data['lanes']} เลน** (ROW {spatial_data['row_width_m']} ม.)
+        * ปริมาณจราจร (AADT) **{spatial_data['aadt']:,} คัน/วัน** เพิ่มการดูดซับของตลาด
+        * ห่างจากทางด่วน **{spatial_data['highway_km']} กม.** เข้า CBD ใน **{spatial_data['cbd_mins']} นาที**
         """)
 
     with c_reason2:
         st.success(f"""
         **2. Legal & Physical Potential (สิทธิ์ตามกฎหมาย)**
-        * ผังเมืองสี **{lands_data['zoning_color']}** อนุญาต **FAR {lands_data['far']}** และ **OSR {lands_data['osr']}%**[cite: 1]
-        * ปลดล็อกพื้นที่อาคารรวม (GFA) สูงสุด ยกระดับราคาที่ดินตามหลัก **HBU**[cite: 1]
-        * หน้ากว้างติดถนน **{lands_data['frontage_m']:.0f} เมตร** ช่วยเพิ่มความโดดเด่น[cite: 1]
+        * ผังเมืองสี **{lands_data['zoning_color']}** อนุญาต **FAR {lands_data['far']}** และ **OSR {lands_data['osr']}%**
+        * ปลดล็อกพื้นที่อาคารรวม (GFA) สูงสุด ยกระดับราคาที่ดินตามหลัก **HBU**
+        * หน้ากว้างติดถนน **{lands_data['frontage_m']:.0f} เมตร** ช่วยเพิ่มความโดดเด่น
         """)
 
     with c_reason3:
         st.warning(f"""
         **3. Demographic Momentum (ดีมานด์ประชากร)**
-        * ความหนาแน่นประชากร **{spatial_data['pop_density']:,} คน/ตร.กม.**[cite: 1]
-        * เติบโต **{spatial_data['pop_growth_pct']}% ต่อปี** เป็นตัวคูณในอัตราเติบโตทบต้น ($g$)[cite: 1]
-        * Feeder Density (จุดจอดรถเมล์/วิน) สูง **{spatial_data['bus_stops_1km']} จุด/1 กม.**[cite: 1]
+        * ความหนาแน่นประชากร **{spatial_data['pop_density']:,} คน/ตร.กม.**
+        * เติบโต **{spatial_data['pop_growth_pct']}% ต่อปี** เป็นตัวคูณในอัตราเติบโตทบต้น ($g$)
+        * Feeder Density (จุดจอดรถเมล์/วิน) สูง **{spatial_data['bus_stops_1km']} จุด/1 กม.**
         """)
 
 # TAB 2: FEASIBILITY
@@ -601,16 +601,16 @@ with tab3:
     
     st.markdown(f"""
     ### 1. Site Attribute Justification
-    * **Zoning Compliance:** Located in **{lands_data['zoning_color']} Zone** ({lands_data['zoning_desc']}), providing an allowable **FAR of {lands_data['far']}** and **OSR of {lands_data['osr']}%**[cite: 1].
-    * **Road Frontage:** Frontage width of **{lands_data['frontage_m']:.0f} meters** provides optimal commercial visibility and access clearance[cite: 1].
+    * **Zoning Compliance:** Located in **{lands_data['zoning_color']} Zone** ({lands_data['zoning_desc']}), providing an allowable **FAR of {lands_data['far']}** and **OSR of {lands_data['osr']}%**.
+    * **Road Frontage:** Frontage width of **{lands_data['frontage_m']:.0f} meters** provides optimal commercial visibility and access clearance.
     
     ### 2. Accessibility & Transit Friction Proof
-    * **Road Geometry:** Situated on a **{spatial_data['lanes']}-lane roadway** with **{spatial_data['row_width_m']}m Right-of-Way (ROW)** and daily traffic volume (AADT) of **{spatial_data['aadt']:,} vehicles/day**[cite: 1].
-    * **Highway & CBD Connectivity:** Located **{spatial_data['highway_km']} km** from major highway ramp with an estimated **{spatial_data['cbd_mins']} mins** commute to CBD[cite: 1].
-    * **Feeder Transit System:** High feeder coverage with **{spatial_data['bus_stops_1km']} bus stops within 1 km** and a Taxi/Van KDE score of **{spatial_data['taxi_kde']}/100**[cite: 1].
+    * **Road Geometry:** Situated on a **{spatial_data['lanes']}-lane roadway** with **{spatial_data['row_width_m']}m Right-of-Way (ROW)** and daily traffic volume (AADT) of **{spatial_data['aadt']:,} vehicles/day**.
+    * **Highway & CBD Connectivity:** Located **{spatial_data['highway_km']} km** from major highway ramp with an estimated **{spatial_data['cbd_mins']} mins** commute to CBD.
+    * **Feeder Transit System:** High feeder coverage with **{spatial_data['bus_stops_1km']} bus stops within 1 km** and a Taxi/Van KDE score of **{spatial_data['taxi_kde']}/100**.
 
     ### 3. Demographic & Economic Momentum
-    * **Catchment Population:** Local density of **{spatial_data['pop_density']:,} people/km²** with an annual population growth rate of **{spatial_data['pop_growth_pct']}%**, creating steady organic demand for **{selected_typology}**[cite: 1].
+    * **Catchment Population:** Local density of **{spatial_data['pop_density']:,} people/km²** with an annual population growth rate of **{spatial_data['pop_growth_pct']}%**, creating steady organic demand for **{selected_typology}**.
     """)
 
     st.markdown("---")
