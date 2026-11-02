@@ -15,7 +15,7 @@ import streamlit.components.v1 as components
 import db_manager
 
 # ==========================================
-# 1. PAGE CONFIGURATION & CONTRAST FIX CSS
+# 1. PAGE CONFIGURATION & MOBILE STYLING (CSS)
 # ==========================================
 st.set_page_config(
     page_title="Real Estate AI Predictor & Feasibility Model",
@@ -24,155 +24,51 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Fix Visibility & High-Contrast CSS
+# Custom CSS เพื่อปรับแต่ง UI และ Mobile Helper Guide
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap');
-    
-    html, body, [class*="css"] {
-        font-family: 'Prompt', sans-serif;
-    }
-
-    /* บังคับพื้นหลังแอปพลิเคชันเป็นสี Slate สว่าง สบายตา */
-    .stApp {
-        background-color: #F8FAFC !important;
-    }
-    
     .main .block-container {
-        padding-top: 1.5rem !important;
-        padding-bottom: 3rem !important;
-        padding-left: 1.2rem !important;
-        padding-right: 1.2rem !important;
-        max-width: 1200px;
+        padding-top: 1.2rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
     }
-
-    /* Header Container */
-    .header-container {
-        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
-        padding: 24px 28px;
-        border-radius: 16px;
-        color: #FFFFFF !important;
-        margin-bottom: 20px;
-        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15);
-    }
-    .header-title {
-        font-size: 1.6rem;
-        font-weight: 600;
-        margin-bottom: 6px;
-        color: #F8FAFC !important;
-    }
-    .header-subtitle {
-        font-size: 0.9rem;
-        color: #CBD5E1 !important;
-        font-weight: 300;
-    }
-
-    /* Mobile Helper Banner */
+    
+    /* Highlight Mobile Sidebar Helper */
     .mobile-guide-box {
-        background-color: #EFF6FF;
-        border-left: 4px solid #2563EB;
+        background-color: #1E293B;
+        border: 1px solid #38BDF8;
         border-radius: 8px;
-        padding: 12px 16px;
-        margin-bottom: 20px;
+        padding: 10px 14px;
+        margin-bottom: 15px;
         font-size: 0.88rem;
-        color: #1E40AF !important;
-        font-weight: 500;
+        color: #E2E8F0;
     }
-
-    /* Metric Cards - บังคับสีข้อความให้เข้มชัดเจน 100% */
-    [data-testid="stMetric"] {
-        background-color: #FFFFFF !important;
-        border: 1px solid #CBD5E1 !important;
-        padding: 16px !important;
-        border-radius: 12px !important;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03) !important;
-    }
+    
     [data-testid="stMetricValue"] {
-        font-size: 1.4rem !important;
-        font-weight: 600 !important;
-        color: #0F172A !important;
+        font-size: 1.3rem !important;
     }
-    [data-testid="stMetricLabel"] {
-        font-size: 0.85rem !important;
-        color: #475569 !important;
-        font-weight: 500 !important;
-    }
-    [data-testid="stMetricDelta"] span {
-        color: #0284C7 !important; /* ปรับข้อความตัวอธิบายด้านล่างให้เป็นสีฟ้าเข้ม อ่านง่าย */
-        font-weight: 500 !important;
-    }
-
-    /* Fix Streamlit Caption / Small text contrast */
-    .stCaption, small, p, span {
-        color: #1E293B !important;
-    }
-
-    /* Tabs Styling */
+    
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: #E2E8F0 !important;
-        padding: 6px;
-        border-radius: 12px;
-        margin-bottom: 20px;
+        gap: 4px;
+        flex-wrap: wrap;
     }
-    .stTabs [data-baseweb="tab"] {
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: #334155 !important;
-        padding: 10px 18px;
-        border-radius: 8px;
-        background-color: transparent;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #FFFFFF !important;
-        color: #2563EB !important;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
-    }
-
-    /* Reason Cards (ใต้กราฟ) */
-    .reason-card {
-        background-color: #FFFFFF !important;
-        border: 1px solid #CBD5E1 !important;
-        border-radius: 12px;
-        padding: 18px;
-        height: 100%;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
-    }
-    .reason-card h4 {
-        margin-top: 0;
-        font-size: 0.98rem;
-        font-weight: 600;
-        margin-bottom: 12px;
-    }
-
-    /* Button Styling */
+    
     div.stButton > button {
         width: 100%;
-        border-radius: 10px;
+        border-radius: 8px;
         height: 2.8rem;
-        background-color: #2563EB !important;
-        color: #FFFFFF !important;
-        font-weight: 500;
-        border: none;
-    }
-    div.stButton > button:hover {
-        background-color: #1D4ED8 !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Custom Header Section
-st.markdown("""
-<div class="header-container">
-    <div class="header-title">🏗️ Real Estate Feasibility & Capital Gain Model</div>
-    <div class="header-subtitle">AI-Powered Spatial Valuation, LandsMaps Auto-Enrichment & Feasibility Analysis</div>
-</div>
-""", unsafe_allow_html=True)
+st.title("🏗️ Real Estate Feasibility & Capital Gain Prediction Engine")
+st.caption("AI-Powered Spatial Valuation, LandsMaps Data Auto-Enrichment & Developer Feasibility Analysis")
 
-# Mobile User Notice
+# Mobile Friendly Helper Banner
 st.markdown("""
 <div class="mobile-guide-box">
-    <span>📱 <b>สำหรับผู้ใช้งานมือถือ:</b> กดปุ่มไอคอน <b>🔍 / ❯❯</b> ที่มุมซ้ายบนเพื่อเปิดแผงป้อนข้อมูลตัวแปร</span>
+    📱 <b>Mobile Users Notice:</b> Tap the <b>🔍 / ❯❯ icon</b> at the top-left corner of your screen to open input controls.
 </div>
 """, unsafe_allow_html=True)
 
@@ -187,6 +83,8 @@ ZONING_URL = "https://landuseplan.dpt.go.th/main/"
 DEFAULT_GMAP_URL = "https://maps.app.goo.gl/YrkaKtdZS71uhNfe7"
 
 THAI_BOUNDS = (5.6, 20.5, 97.3, 105.7)
+
+# Inner Bangkok CBD Bounding Box & Mountain/Forest Exclusions
 INNER_BKK_BOUNDS = (13.70, 13.82, 100.45, 100.60)
 MOUNTAIN_NORTH_BOUNDS = (18.00, 20.50, 97.30, 101.50)
 
@@ -203,6 +101,7 @@ CONSTRUCTION_BENCHMARKS = {
     SHOP: {"min": 18_000_000, "max": 60_000_000, "default": 28_000_000},
 }
 
+# Zoning Law (Removed Purple Zone)
 ZONES = {
     "Yellow": ("Low-density residential", 2.0, 30.0),
     "Orange": ("Medium-density residential", 4.0, 15.0),
@@ -254,14 +153,17 @@ def parse_google_map_url(url):
     return 14.0722, 100.6015
 
 def is_valid_suburban_thailand(lat, lon):
+    """Filter coordinates to allow only Thailand suburban roads (e.g., Highway No. 346 corridor)."""
     lat_min, lat_max, lon_min, lon_max = THAI_BOUNDS
     if not (lat_min <= lat <= lat_max and lon_min <= lon <= lon_max):
         return False, "Location is outside Thailand."
     
+    # Check if land is in Inner Bangkok CBD
     b_min_lat, b_max_lat, b_min_lon, b_max_lon = INNER_BKK_BOUNDS
     if b_min_lat <= lat <= b_max_lat and b_min_lon <= lon <= b_max_lon:
         return False, "Please enter land near suburban road"
         
+    # Check if land is in deep mountain/forest area
     m_min_lat, m_max_lat, m_min_lon, m_max_lon = MOUNTAIN_NORTH_BOUNDS
     if m_min_lat <= lat <= m_max_lat and m_min_lon <= lon <= m_max_lon:
         return False, "Please enter land near suburban road"
@@ -424,7 +326,7 @@ gmap_url_input = st.sidebar.text_input(
     key="gmap_input_box"
 )
 
-btn_update_loc = st.sidebar.button("🔄 Update Location", use_container_width=True)
+btn_update_loc = st.sidebar.button("🔄 Update Location Coordinates", use_container_width=True)
 
 if btn_update_loc or gmap_url_input != st.session_state["gmap_url_state"]:
     st.session_state["gmap_url_state"] = gmap_url_input
@@ -442,12 +344,13 @@ if coords is None:
 
 lat, lon = coords
 
+# Suburban Road Verification Filter
 is_suburban, err_msg = is_valid_suburban_thailand(lat, lon)
 if not is_suburban:
     st.sidebar.error(err_msg)
     st.stop()
 
-st.sidebar.success(f"Location Detected: {lat:.4f}, {lon:.4f}")
+st.sidebar.success(f"Suburban Location Detected: {lat:.4f}, {lon:.4f}")
 
 lands_data = fetch_lands_maps_data(lat, lon)
 spatial_data = fetch_spatial_context(lat, lon)
@@ -500,7 +403,7 @@ with col_info:
     st.link_button("🗺️ Open in Google Maps", gmap_url)
 
 # ==========================================
-# 6. AUTO-DETECTED VARIABLE CATALOG
+# 6. AUTO-DETECTED VARIABLE CATALOG (WITH MANUAL OVERRIDE)
 # ==========================================
 catalog = load_variable_catalog()
 if catalog is not None:
@@ -510,6 +413,8 @@ if catalog is not None:
 
     with st.expander("🧭 Auto-Detected Spatial & Environmental Variables (Click to Expand)", expanded=False):
         st.caption("Auto-filled spatial and environmental factors matched with site location.")
+        
+        # Manual Override Toggle
         enable_manual_override = st.checkbox("⚙️ Enter the value to get more accuracy (Manual Override Mode)")
         
         visible_groups = st.multiselect("Variable groups to show:", group_names, default=group_names)
@@ -523,8 +428,9 @@ if catalog is not None:
             
             view = grp[grp["variable"].isin(chosen)][["key", "variable", "detected", "units", "criteria", "assumption"]].copy()
             
+            # Allow User Manual Edit if Checkbox is Checked
             if enable_manual_override and not view.empty:
-                st.info(f"💡 Edit values directly in the table for **{name}**")
+                st.info(f"💡 Edit values directly in the column below for **{name}**")
                 edited_view = st.data_editor(
                     view[["variable", "detected", "units"]],
                     key=f"editor_{name}",
@@ -577,7 +483,7 @@ typology_scores = score_typologies(lands_data, spatial_data)
 user_selected_score = typology_scores[selected_typology]
 hbu_rankings = sorted(typology_scores.items(), key=lambda x: x[1], reverse=True)
 
-# TAB NAVIGATION
+# INITIALIZE TABS
 tab1, tab2, tab3, tab4 = st.tabs([
     "📈 Capital Gain Projection", 
     "💵 Developer Feasibility", 
@@ -595,12 +501,12 @@ with tab1:
 
     c1, c2 = st.columns(2)
     c1.metric(
-        label="Project Base Value (Year 1 Post-Dev)", 
+        label="Project Base Value (at year after development)", 
         value=f"฿{total_project_cost:,.0f}",
-        help="Initial project valuation right after development completion."
+        help="Initial project valuation right after development completion (Year 1)."
     )
     c2.metric(
-        label=f"Project Base Value ({proj_year}-Year Horizon)", 
+        label=f"Project Base Value (at {proj_year} horizon years)", 
         value=f"฿{future_val:,.0f}",
         delta=f"+{((future_val - total_project_cost) / total_project_cost) * 100:.1f}% Growth",
         help=f"Projected project valuation after holding for {proj_year} years."
@@ -614,7 +520,6 @@ with tab1:
         "Project Value (THB)": [project_value(y) for y in years_range]
     })
     
-    # Modern Plotly Theme Styling
     fig = px.line(
         df_chart, 
         x="Year", 
@@ -622,25 +527,17 @@ with tab1:
         markers=True, 
         title=f"Projected Value Curve (Post-Development to Year {proj_year})"
     )
-    fig.update_traces(line_color='#2563EB', line_width=3, marker=dict(size=8, color='#1E40AF'))
     fig.add_scatter(
         x=[proj_year], 
         y=[future_val], 
         mode="markers", 
-        marker=dict(size=14, color="#EF4444"), 
+        marker=dict(size=14, color="red"), 
         name=f"Year {proj_year} Horizon"
     )
-    fig.update_layout(
-        plot_bgcolor='#FFFFFF',
-        paper_bgcolor='#FFFFFF',
-        font=dict(family="Prompt", color="#334155"),
-        margin=dict(l=20, r=20, t=50, b=20)
-    )
-    fig.update_yaxes(tickformat=",.0f", gridcolor='#F1F5F9')
-    fig.update_xaxes(gridcolor='#F1F5F9')
+    fig.update_yaxes(tickformat=",.0f")
     st.plotly_chart(fig, use_container_width=True)
 
-    # Clean Styled Reasons Cards
+    # REASONS BELOW THE CHART
     st.markdown("---")
     st.markdown("### 💡 Why Project Base Value Increases?")
     st.caption("สรุปปัจจัยเชิงพื้นที่และศักยภาพทางกายภาพที่ขับเคลื่อนการเติบโตของมูลค่าโครงการตามแนวโค้งในกราฟ")
@@ -648,40 +545,28 @@ with tab1:
     c_reason1, c_reason2, c_reason3 = st.columns(3)
 
     with c_reason1:
-        st.markdown(f"""
-        <div class="reason-card" style="border-top: 4px solid #3B82F6;">
-            <h4 style="color: #1E3A8A;">1. Spatial Accessibility</h4>
-            <ul style="padding-left: 18px; font-size: 0.88rem; color: #334155;">
-                <li>ถนนหน้าแปลงกว้าง <b>{spatial_data['lanes']} เลน</b> (ROW {spatial_data['row_width_m']} ม.)[cite: 1]</li>
-                <li>ปริมาณจราจร (AADT) <b>{spatial_data['aadt']:,} คัน/วัน</b>[cite: 1]</li>
-                <li>ห่างทางด่วน <b>{spatial_data['highway_km']} กม.</b> เข้า CBD <b>{spatial_data['cbd_mins']} นาที</b>[cite: 1]</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info(f"""
+        **1. Spatial Accessibility (การเข้าถึง)**
+        * ถนนหน้าแปลงกว้าง **{spatial_data['lanes']} เลน** (ROW {spatial_data['row_width_m']} ม.)[cite: 1]
+        * ปริมาณจราจร (AADT) **{spatial_data['aadt']:,} คัน/วัน** เพิ่มการดูดซับของตลาด[cite: 1]
+        * ห่างจากทางด่วน **{spatial_data['highway_km']} กม.** เข้า CBD ใน **{spatial_data['cbd_mins']} นาที**[cite: 1]
+        """)
 
     with c_reason2:
-        st.markdown(f"""
-        <div class="reason-card" style="border-top: 4px solid #10B981;">
-            <h4 style="color: #065F46;">2. Legal & Physical Potential</h4>
-            <ul style="padding-left: 18px; font-size: 0.88rem; color: #334155;">
-                <li>ผังเมืองสี <b>{lands_data['zoning_color']}</b> (FAR {lands_data['far']} / OSR {lands_data['osr']}%)[cite: 1]</li>
-                <li>ปลดล็อก GFA สูงสุด ยกระดับราคาที่ดินตามหลัก HBU[cite: 1]</li>
-                <li>หน้ากว้างติดถนน <b>{lands_data['frontage_m']:.0f} เมตร</b> ช่วยเพิ่มความโดดเด่น[cite: 1]</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        st.success(f"""
+        **2. Legal & Physical Potential (สิทธิ์ตามกฎหมาย)**
+        * ผังเมืองสี **{lands_data['zoning_color']}** อนุญาต **FAR {lands_data['far']}** และ **OSR {lands_data['osr']}%**[cite: 1]
+        * ปลดล็อกพื้นที่อาคารรวม (GFA) สูงสุด ยกระดับราคาที่ดินตามหลัก **HBU**[cite: 1]
+        * หน้ากว้างติดถนน **{lands_data['frontage_m']:.0f} เมตร** ช่วยเพิ่มความโดดเด่น[cite: 1]
+        """)
 
     with c_reason3:
-        st.markdown(f"""
-        <div class="reason-card" style="border-top: 4px solid #F59E0B;">
-            <h4 style="color: #92400E;">3. Demographic Momentum</h4>
-            <ul style="padding-left: 18px; font-size: 0.88rem; color: #334155;">
-                <li>ความหนาแน่นประชากร <b>{spatial_data['pop_density']:,} คน/ตร.กม.</b>[cite: 1]</li>
-                <li>เติบโต <b>{spatial_data['pop_growth_pct']}% ต่อปี</b> (Compound Growth Factor)[cite: 1]</li>
-                <li>จุดจอดรถเมล์/ระบบสัญจร <b>{spatial_data['bus_stops_1km']} จุด/1 กม.</b>[cite: 1]</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        st.warning(f"""
+        **3. Demographic Momentum (ดีมานด์ประชากร)**
+        * ความหนาแน่นประชากร **{spatial_data['pop_density']:,} คน/ตร.กม.**[cite: 1]
+        * เติบโต **{spatial_data['pop_growth_pct']}% ต่อปี** เป็นตัวคูณในอัตราเติบโตทบต้น ($g$)[cite: 1]
+        * Feeder Density (จุดจอดรถเมล์/วิน) สูง **{spatial_data['bus_stops_1km']} จุด/1 กม.**[cite: 1]
+        """)
 
 # TAB 2: FEASIBILITY
 with tab2:
@@ -736,11 +621,12 @@ with tab3:
     else:
         st.info("No historical records found for this typology in database.")
 
-# TAB 4: BACKEND MANAGER
+# TAB 4: BACKEND MANAGER (WITH PASSWORD AUTHENTICATION)
 with tab4:
     st.subheader("🔒 Backend Data Manager (Admin Access Only)")
     st.caption("Authentic developer credentials required to manage baseline historical database.")
 
+    # Password Protection State
     if "admin_authenticated" not in st.session_state:
         st.session_state["admin_authenticated"] = False
 
@@ -788,4 +674,4 @@ with tab4:
         st.subheader("Stored Database Records")
         st.dataframe(db_manager.fetch_historical_projects(), use_container_width=True)
 
-st.caption("Real Estate Feasibility Engine v3.7 — Enhanced Professional UI & Eye-Friendly Theme")
+st.caption("Real Estate Feasibility Engine v3.6 — Password Protected & Suburban Spatial Filter")
