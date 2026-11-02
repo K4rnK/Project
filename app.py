@@ -15,51 +15,51 @@ import streamlit.components.v1 as components
 import db_manager
 
 # ==========================================
-# 1. PAGE CONFIGURATION & DUAL-DEVICE STYLING (CSS)
+# 1. PAGE CONFIGURATION & MOBILE STYLING (CSS)
 # ==========================================
 st.set_page_config(
     page_title="Real Estate AI Predictor & Feasibility Model",
     page_icon="🏗️",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="collapsed"  # ยุบ Sidebar บนมือถือเพื่อเพิ่มพื้นที่หน้าจอ
 )
 
-# Custom CSS รองรับทั้ง Desktop และ Mobile Responsive
+# Custom CSS เพื่อปรับแต่ง UI บนสมาร์ทโฟนและอุปกรณ์เคลื่อนที่
 st.markdown("""
     <style>
-    /* Responsive Padding สำหรับหน้าจอทุกขนาด */
+    /* ปรับแต่ง Padding สำหรับหน้าจอมือถือ */
     .main .block-container {
         padding-top: 1.5rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
     }
     
-    /* ปรับแต่ง Metric Cards ให้พอดีทั้งมือถือและคอม */
+    /* ปรับขนาดตัวอักษรของ Metric ให้สมดุลบนมือถือ */
     [data-testid="stMetricValue"] {
-        font-size: 1.35rem !important;
+        font-size: 1.3rem !important;
     }
     [data-testid="stMetricLabel"] {
-        font-size: 0.88rem !important;
+        font-size: 0.85rem !important;
     }
     
-    /* ปรับแต่งแท็บการใช้งาน (Tabs) */
+    /* ปรับแต่ง แท็บ (Tabs) ให้กดง่ายขึ้นบนหน้าจอสัมผัส */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 6px;
+        gap: 4px;
         flex-wrap: wrap;
     }
     .stTabs [data-baseweb="tab"] {
-        font-size: 0.9rem;
-        padding: 8px 14px;
+        font-size: 0.85rem;
+        padding: 8px 12px;
         border-radius: 6px;
     }
     
-    /* ซ่อนการล้นแนวนอนของตาราง */
+    /* ซ่อนแถบ Scrollbar แนวนอนในตารางสำหรับมือถือ */
     .stTable {
         overflow-x: auto;
     }
     
-    /* ปรับแต่งปุ่มกดให้ตอบสนองดีบน Touch Screen และ Click */
+    /* ปรับปุ่มกดให้ขยายเต็มความกว้าง (Full Width) สำหรับมือถือ */
     div.stButton > button {
         width: 100%;
         border-radius: 8px;
@@ -79,7 +79,7 @@ db_manager.init_db()
 LANDSMAPS_URL = "https://landsmaps.dol.go.th"
 ASSESS_PRICE_URL = "https://assessprice.treasury.go.th"
 ZONING_URL = "https://landuseplan.dpt.go.th/main/"
-DEFAULT_GMAP_URL = "https://maps.app.goo.gl/mNMJmNMsh8vJKwmL8"
+DEFAULT_GMAP_URL = "https://maps.app.goo.gl/YrkaKtdZS71uhNfe7"
 
 THAI_BOUNDS = (5.6, 20.5, 97.3, 105.7)
 
@@ -107,26 +107,24 @@ BASE_APPRECIATION = 0.025
 RISK_GROUP = "Risk History"
 
 # ==========================================
-# 3. UNIVERSAL GOOGLE MAPS URL PARSER (DESKTOP + MOBILE)
+# 3. HELPER FUNCTIONS & ENHANCED URL PARSER
 # ==========================================
 COORD_PATTERNS = [
-    r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)",                              # Embedded map / Specific Pin
-    r"[?&]q=(-?\d+\.\d+),[\s+]*(-?\d+\.\d+)",                       # Desktop Pin Share URL (q=lat,lon)
-    r"@(-?\d+\.\d+),(-?\d+\.\d+)",                                  # Camera View @lat,lon
-    r"[?&](?:ll|query|destination)=(-?\d+\.\d+),[\s+]*(-?\d+\.\d+)",# Query Parameters
-    r"/place/[^/]+/(-?\d+\.\d+),(-?\d+\.\d+)",                      # Place Name + Coordinates
-    r"/place/(-?\d+\.\d+),(-?\d+\.\d+)",                             # Direct Place Coordinates
-    r"(-?\d+\.\d+)[\s,]+(-?\d+\.\d+)",                               # Raw Lat, Lon input
+    r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)",                          # Google Maps Embed / Shared Place
+    r"@(-?\d+\.\d+),(-?\d+\.\d+)",                              # @lat,lon
+    r"[?&](?:q|ll|query|destination)=(-?\d+\.\d+),[\s+]*(-?\d+\.\d+)", # q=lat,lon or ll=lat,lon
+    r"/place/[^/]+/(-?\d+\.\d+),(-?\d+\.\d+)",                  # Named Place with Coords
+    r"/place/(-?\d+\.\d+),(-?\d+\.\d+)",                         # Direct Place Coords
+    r"(-?\d+\.\d+)[\s,]+(-?\d+\.\d+)",                           # Raw Lat, Lon input
 ]
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def resolve_short_url(url):
-    """ขยายลิงก์สั้น maps.app.goo.gl จากคอมพิวเตอร์และมือถือไปสู่ URL เต็ม"""
+    """Resolve shortened URLs like maps.app.goo.gl to full URLs."""
     try:
-        req = Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        })
-        with urlopen(req, timeout=10) as resp:
+        clean_url = url.split("?")[0] if "?" in url else url
+        req = Request(clean_url, headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)"})
+        with urlopen(req, timeout=8) as resp:
             return resp.geturl()
     except Exception:
         return url
@@ -138,24 +136,22 @@ def is_google_maps_link(url):
     return bool(re.search(r"google\.|goo\.gl|maps\.app", url_str))
 
 def parse_google_map_url(url):
-    """ถอดรหัสพิกัด (Lat, Lon) จากลิงก์ Google Maps ทั้งจากคอมและมือถือ"""
+    """Extract (lat, lon) from Google Maps link or raw coordinates."""
     url = (url or "").strip()
     if not url:
         return None
     
-    # ถ้าเป็นลิงก์ย่อ maps.app.goo.gl ให้ resolve หาลิงก์เต็มก่อน
     if re.search(r"goo\.gl|maps\.app", url.lower()):
         url = resolve_short_url(url)
         
     url = unquote(url)
     
-    # วนลูปเช็ค Regex pattern ตามลำดับความแม่นยำของหมุด
     for pattern in COORD_PATTERNS:
         match = re.search(pattern, url)
         if match:
             return float(match.group(1)), float(match.group(2))
             
-    return 14.0649, 100.5915  # Fallback พิกัดเริ่มต้น
+    return 14.0722, 100.6015
 
 def in_thailand(lat, lon):
     lat_min, lat_max, lon_min, lon_max = THAI_BOUNDS
@@ -304,7 +300,7 @@ def find_similar_backtests(typology, lands, sp, top_n=3):
     return res_df.drop(columns=["_dist"]) if not res_df.empty else res_df
 
 # ==========================================
-# 4. SIDEBAR INPUT CONTROLS (DESKTOP + MOBILE)
+# 4. SIDEBAR INPUT CONTROLS (MOBILE FRIENDLY)
 # ==========================================
 st.sidebar.header("📍 1. Parcel Location Input")
 
@@ -317,7 +313,7 @@ gmap_url_input = st.sidebar.text_input(
     key="gmap_input_box"
 )
 
-# ปุ่มสั่งรีเฟรชประมวลผลพิกัด
+# ปุ่มกดสั่งอัปเดตตำแหน่งพิกัดบนมือถือ
 btn_update_loc = st.sidebar.button("🔄 อัปเดตตำแหน่งพิกัด", use_container_width=True)
 
 if btn_update_loc or gmap_url_input != st.session_state["gmap_url_state"]:
@@ -331,15 +327,15 @@ if not is_google_maps_link(gmap_url):
 
 coords = parse_google_map_url(gmap_url)
 if coords is None:
-    st.sidebar.error("Could not extract coordinates from link.")
+    st.sidebar.error("Could not extract coordinates.")
     st.stop()
 
 lat, lon = coords
 if not in_thailand(lat, lon):
-    st.sidebar.error(f"Location ({lat:.4f}, {lon:.4f}) is outside Thailand bounds.")
+    st.sidebar.error(f"Location ({lat:.4f}, {lon:.4f}) is outside Thailand.")
     st.stop()
 
-st.sidebar.success(f"📍 Location Detected: {lat:.6f}, {lon:.6f}")
+st.sidebar.success(f"Location Detected: Lat {lat:.4f}, Lon {lon:.4f}")
 
 lands_data = fetch_lands_maps_data(lat, lon)
 spatial_data = fetch_spatial_context(lat, lon)
@@ -634,4 +630,4 @@ with tab4:
     st.subheader("Stored Database Records")
     st.dataframe(db_manager.fetch_historical_projects(), use_container_width=True)
 
-st.caption("Real Estate Feasibility Engine v3.6 — Universal Desktop & Mobile Link Parser")
+st.caption("Real Estate Feasibility Engine v3.5 — Full Production Release with Mobile Optimization")
