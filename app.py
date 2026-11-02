@@ -21,13 +21,13 @@ st.set_page_config(
     page_title="Real Estate AI Predictor & Feasibility Model",
     page_icon="🏗️",
     layout="wide",
-    initial_sidebar_state="collapsed"  # ยุบ Sidebar บนมือถืออัตโนมัติเพื่อเปิดพื้นที่หน้าจอ
+    initial_sidebar_state="collapsed"  # ยุบ Sidebar บนมือถือเพื่อเพิ่มพื้นที่หน้าจอ
 )
 
-# Custom CSS เพื่อปรับแต่ง UI บนสมาร์ทโฟน
+# Custom CSS เพื่อปรับแต่ง UI บนสมาร์ทโฟนและอุปกรณ์เคลื่อนที่
 st.markdown("""
     <style>
-    /* ปรับแต่งเมนูด้านบนและ Padding สำหรับหน้าจอมือถือ */
+    /* ปรับแต่ง Padding สำหรับหน้าจอมือถือ */
     .main .block-container {
         padding-top: 1.5rem !important;
         padding-bottom: 2rem !important;
@@ -35,15 +35,15 @@ st.markdown("""
         padding-right: 0.8rem !important;
     }
     
-    /* ปรับขนาดตัวอักษรของ Metric บนมือถือ */
+    /* ปรับขนาดตัวอักษรของ Metric ให้สมดุลบนมือถือ */
     [data-testid="stMetricValue"] {
-        font-size: 1.4rem !important;
+        font-size: 1.3rem !important;
     }
     [data-testid="stMetricLabel"] {
         font-size: 0.85rem !important;
     }
     
-    /* ปรับ Tab บนมือถือให้อ่านง่ายและกดสะดวก */
+    /* ปรับแต่ง แท็บ (Tabs) ให้กดง่ายขึ้นบนหน้าจอสัมผัส */
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
         flex-wrap: wrap;
@@ -59,7 +59,7 @@ st.markdown("""
         overflow-x: auto;
     }
     
-    /* ให้ปุ่มกดสไลเดอร์และปุ่มป้อนข้อมูลยาวเต็มความกว้างบนหน้าจอมือถือ */
+    /* ปรับปุ่มกดให้ขยายเต็มความกว้าง (Full Width) สำหรับมือถือ */
     div.stButton > button {
         width: 100%;
         border-radius: 8px;
@@ -68,8 +68,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🏗️ Real Estate Feasibility Model")
-st.caption("AI-Powered Spatial Valuation, LandsMaps Auto-Enrichment & Developer Feasibility")
+st.title("🏗️ Real Estate Feasibility & Capital Gain Prediction Engine")
+st.caption("AI-Powered Spatial Valuation, LandsMaps Data Auto-Enrichment & Developer Feasibility Analysis")
 
 db_manager.init_db()
 
@@ -107,20 +107,23 @@ BASE_APPRECIATION = 0.025
 RISK_GROUP = "Risk History"
 
 # ==========================================
-# 3. HELPER FUNCTIONS & URL PARSER
+# 3. HELPER FUNCTIONS & ENHANCED URL PARSER
 # ==========================================
 COORD_PATTERNS = [
-    r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)",
-    r"@(-?\d+\.\d+),(-?\d+\.\d+)",
-    r"[?&](?:q|ll|query|destination)=(-?\d+\.\d+),[\s+]*(-?\d+\.\d+)",
-    r"/place/[^/]+/(-?\d+\.\d+),(-?\d+\.\d+)",
-    r"/place/(-?\d+\.\d+),(-?\d+\.\d+)",
+    r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)",                          # Google Maps Embed / Shared Place
+    r"@(-?\d+\.\d+),(-?\d+\.\d+)",                              # @lat,lon
+    r"[?&](?:q|ll|query|destination)=(-?\d+\.\d+),[\s+]*(-?\d+\.\d+)", # q=lat,lon or ll=lat,lon
+    r"/place/[^/]+/(-?\d+\.\d+),(-?\d+\.\d+)",                  # Named Place with Coords
+    r"/place/(-?\d+\.\d+),(-?\d+\.\d+)",                         # Direct Place Coords
+    r"(-?\d+\.\d+)[\s,]+(-?\d+\.\d+)",                           # Raw Lat, Lon input
 ]
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def resolve_short_url(url):
+    """Resolve shortened URLs like maps.app.goo.gl to full URLs."""
     try:
-        req = Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        clean_url = url.split("?")[0] if "?" in url else url
+        req = Request(clean_url, headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)"})
         with urlopen(req, timeout=8) as resp:
             return resp.geturl()
     except Exception:
@@ -128,19 +131,26 @@ def resolve_short_url(url):
 
 def is_google_maps_link(url):
     url_str = (url or "").strip().lower()
+    if re.search(r"^-?\d+\.\d+[\s,]+-?\d+\.\d+$", url_str):
+        return True
     return bool(re.search(r"google\.|goo\.gl|maps\.app", url_str))
 
 def parse_google_map_url(url):
+    """Extract (lat, lon) from Google Maps link or raw coordinates."""
     url = (url or "").strip()
     if not url:
         return None
+    
     if re.search(r"goo\.gl|maps\.app", url.lower()):
         url = resolve_short_url(url)
+        
     url = unquote(url)
+    
     for pattern in COORD_PATTERNS:
         match = re.search(pattern, url)
         if match:
             return float(match.group(1)), float(match.group(2))
+            
     return 14.0722, 100.6015
 
 def in_thailand(lat, lon):
@@ -290,13 +300,29 @@ def find_similar_backtests(typology, lands, sp, top_n=3):
     return res_df.drop(columns=["_dist"]) if not res_df.empty else res_df
 
 # ==========================================
-# 4. SIDEBAR INPUT CONTROLS
+# 4. SIDEBAR INPUT CONTROLS (MOBILE FRIENDLY)
 # ==========================================
 st.sidebar.header("📍 1. Parcel Location Input")
-gmap_url = st.sidebar.text_input("Paste Google Maps Link / Location:", value=DEFAULT_GMAP_URL)
+
+if "gmap_url_state" not in st.session_state:
+    st.session_state["gmap_url_state"] = DEFAULT_GMAP_URL
+
+gmap_url_input = st.sidebar.text_input(
+    "Paste Google Maps Link / Lat,Lon:", 
+    value=st.session_state["gmap_url_state"],
+    key="gmap_input_box"
+)
+
+# ปุ่มกดสั่งอัปเดตตำแหน่งพิกัดบนมือถือ
+btn_update_loc = st.sidebar.button("🔄 อัปเดตตำแหน่งพิกัด", use_container_width=True)
+
+if btn_update_loc or gmap_url_input != st.session_state["gmap_url_state"]:
+    st.session_state["gmap_url_state"] = gmap_url_input
+
+gmap_url = st.session_state["gmap_url_state"]
 
 if not is_google_maps_link(gmap_url):
-    st.sidebar.error("Please paste a valid Google Maps link.")
+    st.sidebar.error("Please paste a valid Google Maps link or Lat,Lon coordinates.")
     st.stop()
 
 coords = parse_google_map_url(gmap_url)
@@ -490,7 +516,7 @@ with tab1:
     st.plotly_chart(fig, use_container_width=True)
 
     # ------------------------------------------
-    # REASONS BELOW THE CHART (รองรับหน้าจอมือถือ)
+    # REASONS BELOW THE CHART (เหตุผลใต้กราฟ)
     # ------------------------------------------
     st.markdown("---")
     st.markdown("### 💡 Why Project Base Value Increases?")
@@ -604,4 +630,4 @@ with tab4:
     st.subheader("Stored Database Records")
     st.dataframe(db_manager.fetch_historical_projects(), use_container_width=True)
 
-st.caption("Real Estate Feasibility Engine v3.4 — Mobile Responsive UI & Optimized Layout")
+st.caption("Real Estate Feasibility Engine v3.5 — Full Production Release with Mobile Optimization")
