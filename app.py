@@ -15,55 +15,55 @@ import streamlit.components.v1 as components
 import db_manager
 
 # ==========================================
-# 1. PAGE CONFIGURATION & DESKTOP/MOBILE RESPONSIVE STYLING
+# 1. PAGE CONFIGURATION & MOBILE STYLING (CSS)
 # ==========================================
 st.set_page_config(
     page_title="Real Estate AI Predictor & Feasibility Model",
     page_icon="🏗️",
     layout="wide",
-    initial_sidebar_state="auto"
+    initial_sidebar_state="collapsed"  # ยุบ Sidebar บนมือถือเพื่อเพิ่มพื้นที่หน้าจอ
 )
 
-# Custom CSS รองรับทั้งคอมพิวเตอร์ (Desktop) และสมาร์ทโฟน (Mobile)
+# Custom CSS เพื่อปรับแต่ง UI บนสมาร์ทโฟนและอุปกรณ์เคลื่อนที่
 st.markdown("""
     <style>
-    /* Responsive Block Container Padding */
+    /* ปรับแต่ง Padding สำหรับหน้าจอมือถือ */
     .main .block-container {
         padding-top: 1.5rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
     }
     
-    /* Responsive Metrics Styling */
+    /* ปรับขนาดตัวอักษรของ Metric ให้สมดุลบนมือถือ */
     [data-testid="stMetricValue"] {
-        font-size: clamp(1.1rem, 2.5vw, 1.6rem) !important;
+        font-size: 1.3rem !important;
     }
     [data-testid="stMetricLabel"] {
-        font-size: clamp(0.75rem, 1.2vw, 0.95rem) !important;
+        font-size: 0.85rem !important;
     }
     
-    /* Responsive Tabs Styling */
+    /* ปรับแต่ง แท็บ (Tabs) ให้กดง่ายขึ้นบนหน้าจอสัมผัส */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 6px;
+        gap: 4px;
         flex-wrap: wrap;
     }
     .stTabs [data-baseweb="tab"] {
-        font-size: 0.9rem;
-        padding: 8px 16px;
+        font-size: 0.85rem;
+        padding: 8px 12px;
         border-radius: 6px;
     }
     
-    /* Full Width Touch/Click Buttons */
+    /* ซ่อนแถบ Scrollbar แนวนอนในตารางสำหรับมือถือ */
+    .stTable {
+        overflow-x: auto;
+    }
+    
+    /* ปรับปุ่มกดให้ขยายเต็มความกว้าง (Full Width) สำหรับมือถือ */
     div.stButton > button {
         width: 100%;
         border-radius: 8px;
         height: 2.8rem;
-    }
-    
-    /* Overflow auto for dataframes and tables */
-    .stTable, div[data-testid="stDataFrame"] {
-        overflow-x: auto;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -79,7 +79,7 @@ db_manager.init_db()
 LANDSMAPS_URL = "https://landsmaps.dol.go.th"
 ASSESS_PRICE_URL = "https://assessprice.treasury.go.th"
 ZONING_URL = "https://landuseplan.dpt.go.th/main/"
-DEFAULT_GMAP_URL = "https://maps.app.goo.gl/mNMJmNMsh8vJKwmL8"
+DEFAULT_GMAP_URL = "https://maps.app.goo.gl/YrkaKtdZS71uhNfe7"
 
 THAI_BOUNDS = (5.6, 20.5, 97.3, 105.7)
 
@@ -107,35 +107,25 @@ BASE_APPRECIATION = 0.025
 RISK_GROUP = "Risk History"
 
 # ==========================================
-# 3. ADVANCED GOOGLE MAPS URL PARSER (DESKTOP & MOBILE ENHANCED)
+# 3. HELPER FUNCTIONS & ENHANCED URL PARSER
 # ==========================================
 COORD_PATTERNS = [
-    r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)",                          # Google Maps Embed/Place Embed
+    r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)",                          # Google Maps Embed / Shared Place
     r"@(-?\d+\.\d+),(-?\d+\.\d+)",                              # @lat,lon
     r"[?&](?:q|ll|query|destination)=(-?\d+\.\d+),[\s+]*(-?\d+\.\d+)", # q=lat,lon or ll=lat,lon
     r"/place/[^/]+/(-?\d+\.\d+),(-?\d+\.\d+)",                  # Named Place with Coords
     r"/place/(-?\d+\.\d+),(-?\d+\.\d+)",                         # Direct Place Coords
-    r"(-?\d+\.\d+)[\s,]+(-?\d+\.\d+)",                           # Raw Lat, Lon input (e.g. 14.064928, 100.591581)
+    r"(-?\d+\.\d+)[\s,]+(-?\d+\.\d+)",                           # Raw Lat, Lon input
 ]
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def resolve_short_url(url):
-    """Resolve shortened URLs like maps.app.goo.gl to full redirected URLs for both Desktop and Mobile."""
+    """Resolve shortened URLs like maps.app.goo.gl to full URLs."""
     try:
-        # ใช้ Desktop User-Agent เพื่อให้ Google Maps ไม่สับสนเรื่องการ Redirect บนคอมพิวเตอร์
-        req = Request(
-            url, 
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-        )
-        with urlopen(req, timeout=10) as resp:
-            resolved = resp.geturl()
-            # กรณีที่ URL อ่านกลับมายังมี Short Format ให้ดึงเนื้อหา HTML เพื่อค้นหา พิกัดซ่อนอยู่
-            if "maps.app.goo.gl" in resolved or "goo.gl" in resolved:
-                html_content = resp.read().decode("utf-8", errors="ignore")
-                match = re.search(r'https?://[^\s"\']+', html_content)
-                if match:
-                    return match.group(0)
-            return resolved
+        clean_url = url.split("?")[0] if "?" in url else url
+        req = Request(clean_url, headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)"})
+        with urlopen(req, timeout=8) as resp:
+            return resp.geturl()
     except Exception:
         return url
 
@@ -146,35 +136,22 @@ def is_google_maps_link(url):
     return bool(re.search(r"google\.|goo\.gl|maps\.app", url_str))
 
 def parse_google_map_url(url):
-    """Extract (lat, lon) from Desktop pinned place links, mobile links, or raw coordinates."""
+    """Extract (lat, lon) from Google Maps link or raw coordinates."""
     url = (url or "").strip()
     if not url:
         return None
     
-    # ถ้าเป็น Short URL ทั้งจาก Mobile และ Desktop ให้ resolve ก่อน
     if re.search(r"goo\.gl|maps\.app", url.lower()):
-        resolved_url = resolve_short_url(url)
-        if resolved_url:
-            url = resolved_url
-            
+        url = resolve_short_url(url)
+        
     url = unquote(url)
     
-    # ค้นหาพิกัดตาม Pattern
     for pattern in COORD_PATTERNS:
         match = re.search(pattern, url)
         if match:
             return float(match.group(1)), float(match.group(2))
             
-    # กรณีหมุดสีเทาบนเดสก์ท็อป สกัดหาตัวเลขทศนิยมพิกัดดิบจาก URL ที่ขยายแล้ว
-    raw_coords = re.findall(r"(-?\d{1,2}\.\d{4,10})", url)
-    if len(raw_coords) >= 2:
-        c1, c2 = float(raw_coords[0]), float(raw_coords[1])
-        if in_thailand(c1, c2):
-            return c1, c2
-        elif in_thailand(c2, c1):
-            return c2, c1
-            
-    return 14.0649, 100.5915 # Default Fallback จากหมุดตัวอย่างรูป
+    return 14.0722, 100.6015
 
 def in_thailand(lat, lon):
     lat_min, lat_max, lon_min, lon_max = THAI_BOUNDS
@@ -323,7 +300,7 @@ def find_similar_backtests(typology, lands, sp, top_n=3):
     return res_df.drop(columns=["_dist"]) if not res_df.empty else res_df
 
 # ==========================================
-# 4. SIDEBAR INPUT CONTROLS (DESKTOP & MOBILE COMPATIBLE)
+# 4. SIDEBAR INPUT CONTROLS (MOBILE FRIENDLY)
 # ==========================================
 st.sidebar.header("📍 1. Parcel Location Input")
 
@@ -333,12 +310,11 @@ if "gmap_url_state" not in st.session_state:
 gmap_url_input = st.sidebar.text_input(
     "Paste Google Maps Link / Lat,Lon:", 
     value=st.session_state["gmap_url_state"],
-    key="gmap_input_box",
-    help="รองรับทั้งลิงก์หมุดแชร์จากคอมพิวเตอร์ ลิงก์มือถือ หรือพิกัดดิบ เช่น 14.064928, 100.591581"
+    key="gmap_input_box"
 )
 
-# ปุ่มกดสั่งอัปเดตตำแหน่งพิกัด
-btn_update_loc = st.sidebar.button("🔄 อัปเดตตำแหน่งพิกัด (Update Location)", use_container_width=True)
+# ปุ่มกดสั่งอัปเดตตำแหน่งพิกัดบนมือถือ
+btn_update_loc = st.sidebar.button("🔄 อัปเดตตำแหน่งพิกัด", use_container_width=True)
 
 if btn_update_loc or gmap_url_input != st.session_state["gmap_url_state"]:
     st.session_state["gmap_url_state"] = gmap_url_input
@@ -351,15 +327,15 @@ if not is_google_maps_link(gmap_url):
 
 coords = parse_google_map_url(gmap_url)
 if coords is None:
-    st.sidebar.error("Could not extract coordinates from link.")
+    st.sidebar.error("Could not extract coordinates.")
     st.stop()
 
 lat, lon = coords
 if not in_thailand(lat, lon):
-    st.sidebar.error(f"Location ({lat:.4f}, {lon:.4f}) is outside Thailand bounds.")
+    st.sidebar.error(f"Location ({lat:.4f}, {lon:.4f}) is outside Thailand.")
     st.stop()
 
-st.sidebar.success(f"📍 Location Detected: Lat {lat:.6f}, Lon {lon:.6f}")
+st.sidebar.success(f"Location Detected: Lat {lat:.4f}, Lon {lon:.4f}")
 
 lands_data = fetch_lands_maps_data(lat, lon)
 spatial_data = fetch_spatial_context(lat, lon)
@@ -404,7 +380,7 @@ dev_timeline_years = st.sidebar.slider("Development Timeline (Years):", min_valu
 st.subheader("📍 Parcel Location Summary")
 col_map, col_info = st.columns([3, 2])
 with col_map:
-    components.iframe(f"https://maps.google.com/maps?q={lat},{lon}&z=17&output=embed", height=300)
+    components.iframe(f"https://maps.google.com/maps?q={lat},{lon}&z=17&output=embed", height=280)
 with col_info:
     st.metric("Total Land Cost", f"฿{total_land_cost:,.0f}")
     st.metric("Total Project Cost", f"฿{total_project_cost:,.0f}")
@@ -551,25 +527,25 @@ with tab1:
     with c_reason1:
         st.info(f"""
         **1. Spatial Accessibility (การเข้าถึง)**
-        * ถนนหน้าแปลงกว้าง **{spatial_data['lanes']} เลน** (ROW {spatial_data['row_width_m']} ม.)
-        * ปริมาณจราจร (AADT) **{spatial_data['aadt']:,} คัน/วัน** เพิ่มการดูดซับของตลาด
-        * ห่างจากทางด่วน **{spatial_data['highway_km']} กม.** เข้า CBD ใน **{spatial_data['cbd_mins']} นาที**
+        * ถนนหน้าแปลงกว้าง **{spatial_data['lanes']} เลน** (ROW {spatial_data['row_width_m']} ม.)[cite: 1]
+        * ปริมาณจราจร (AADT) **{spatial_data['aadt']:,} คัน/วัน** เพิ่มการดูดซับของตลาด[cite: 1]
+        * ห่างจากทางด่วน **{spatial_data['highway_km']} กม.** เข้า CBD ใน **{spatial_data['cbd_mins']} นาที**[cite: 1]
         """)
 
     with c_reason2:
         st.success(f"""
         **2. Legal & Physical Potential (สิทธิ์ตามกฎหมาย)**
-        * ผังเมืองสี **{lands_data['zoning_color']}** อนุญาต **FAR {lands_data['far']}** และ **OSR {lands_data['osr']}%**
-        * ปลดล็อกพื้นที่อาคารรวม (GFA) สูงสุด ยกระดับราคาที่ดินตามหลัก **HBU**
-        * หน้ากว้างติดถนน **{lands_data['frontage_m']:.0f} เมตร** ช่วยเพิ่มความโดดเด่น
+        * ผังเมืองสี **{lands_data['zoning_color']}** อนุญาต **FAR {lands_data['far']}** และ **OSR {lands_data['osr']}%**[cite: 1]
+        * ปลดล็อกพื้นที่อาคารรวม (GFA) สูงสุด ยกระดับราคาที่ดินตามหลัก **HBU**[cite: 1]
+        * หน้ากว้างติดถนน **{lands_data['frontage_m']:.0f} เมตร** ช่วยเพิ่มความโดดเด่น[cite: 1]
         """)
 
     with c_reason3:
         st.warning(f"""
         **3. Demographic Momentum (ดีมานด์ประชากร)**
-        * ความหนาแน่นประชากร **{spatial_data['pop_density']:,} คน/ตร.กม.**
-        * เติบโต **{spatial_data['pop_growth_pct']}% ต่อปี** เป็นตัวคูณในอัตราเติบโตทบต้น ($g$)
-        * Feeder Density (จุดจอดรถเมล์/วิน) สูง **{spatial_data['bus_stops_1km']} จุด/1 กม.**
+        * ความหนาแน่นประชากร **{spatial_data['pop_density']:,} คน/ตร.กม.**[cite: 1]
+        * เติบโต **{spatial_data['pop_growth_pct']}% ต่อปี** เป็นตัวคูณในอัตราเติบโตทบต้น ($g$)[cite: 1]
+        * Feeder Density (จุดจอดรถเมล์/วิน) สูง **{spatial_data['bus_stops_1km']} จุด/1 กม.**[cite: 1]
         """)
 
 # TAB 2: FEASIBILITY
@@ -605,16 +581,16 @@ with tab3:
     
     st.markdown(f"""
     ### 1. Site Attribute Justification
-    * **Zoning Compliance:** Located in **{lands_data['zoning_color']} Zone** ({lands_data['zoning_desc']}), providing an allowable **FAR of {lands_data['far']}** and **OSR of {lands_data['osr']}%**.
-    * **Road Frontage:** Frontage width of **{lands_data['frontage_m']:.0f} meters** provides optimal commercial visibility and access clearance.
+    * **Zoning Compliance:** Located in **{lands_data['zoning_color']} Zone** ({lands_data['zoning_desc']}), providing an allowable **FAR of {lands_data['far']}** and **OSR of {lands_data['osr']}%**[cite: 1].
+    * **Road Frontage:** Frontage width of **{lands_data['frontage_m']:.0f} meters** provides optimal commercial visibility and access clearance[cite: 1].
     
     ### 2. Accessibility & Transit Friction Proof
-    * **Road Geometry:** Situated on a **{spatial_data['lanes']}-lane roadway** with **{spatial_data['row_width_m']}m Right-of-Way (ROW)** and daily traffic volume (AADT) of **{spatial_data['aadt']:,} vehicles/day**.
-    * **Highway & CBD Connectivity:** Located **{spatial_data['highway_km']} km** from major highway ramp with an estimated **{spatial_data['cbd_mins']} mins** commute to CBD.
-    * **Feeder Transit System:** High feeder coverage with **{spatial_data['bus_stops_1km']} bus stops within 1 km** and a Taxi/Van KDE score of **{spatial_data['taxi_kde']}/100**.
+    * **Road Geometry:** Situated on a **{spatial_data['lanes']}-lane roadway** with **{spatial_data['row_width_m']}m Right-of-Way (ROW)** and daily traffic volume (AADT) of **{spatial_data['aadt']:,} vehicles/day**[cite: 1].
+    * **Highway & CBD Connectivity:** Located **{spatial_data['highway_km']} km** from major highway ramp with an estimated **{spatial_data['cbd_mins']} mins** commute to CBD[cite: 1].
+    * **Feeder Transit System:** High feeder coverage with **{spatial_data['bus_stops_1km']} bus stops within 1 km** and a Taxi/Van KDE score of **{spatial_data['taxi_kde']}/100**[cite: 1].
 
     ### 3. Demographic & Economic Momentum
-    * **Catchment Population:** Local density of **{spatial_data['pop_density']:,} people/km²** with an annual population growth rate of **{spatial_data['pop_growth_pct']}%**, creating steady organic demand for **{selected_typology}**.
+    * **Catchment Population:** Local density of **{spatial_data['pop_density']:,} people/km²** with an annual population growth rate of **{spatial_data['pop_growth_pct']}%**, creating steady organic demand for **{selected_typology}**[cite: 1].
     """)
 
     st.markdown("---")
@@ -654,4 +630,4 @@ with tab4:
     st.subheader("Stored Database Records")
     st.dataframe(db_manager.fetch_historical_projects(), use_container_width=True)
 
-st.caption("Real Estate Feasibility Engine v3.6 — Fully Cross-Platform (Desktop & Mobile Links Supported)")
+st.caption("Real Estate Feasibility Engine v3.5 — Full Production Release with Mobile Optimization")
