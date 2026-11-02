@@ -15,7 +15,7 @@ import streamlit.components.v1 as components
 import db_manager
 
 # ==========================================
-# 1. PAGE CONFIGURATION & MODERN EYE-FRIENDLY STYLING (CSS)
+# 1. PAGE CONFIGURATION & CONTRAST FIX CSS
 # ==========================================
 st.set_page_config(
     page_title="Real Estate AI Predictor & Feasibility Model",
@@ -24,23 +24,22 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom Clean & Professional CSS Design
+# Fix Visibility & High-Contrast CSS
 st.markdown("""
     <style>
-    /* Google Fonts Import */
     @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Prompt', sans-serif;
     }
 
-    /* Overall Background & Spacing */
+    /* บังคับพื้นหลังแอปพลิเคชันเป็นสี Slate สว่าง สบายตา */
     .stApp {
-        background-color: #F8FAFC;
+        background-color: #F8FAFC !important;
     }
     
     .main .block-container {
-        padding-top: 2rem !important;
+        padding-top: 1.5rem !important;
         padding-bottom: 3rem !important;
         padding-left: 1.2rem !important;
         padding-right: 1.2rem !important;
@@ -49,26 +48,26 @@ st.markdown("""
 
     /* Header Container */
     .header-container {
-        background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+        background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
         padding: 24px 28px;
         border-radius: 16px;
-        color: #FFFFFF;
+        color: #FFFFFF !important;
         margin-bottom: 20px;
-        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.1);
+        box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15);
     }
     .header-title {
         font-size: 1.6rem;
         font-weight: 600;
         margin-bottom: 6px;
-        color: #F8FAFC;
+        color: #F8FAFC !important;
     }
     .header-subtitle {
         font-size: 0.9rem;
-        color: #94A3B8;
+        color: #CBD5E1 !important;
         font-weight: 300;
     }
 
-    /* Mobile Helper Box */
+    /* Mobile Helper Banner */
     .mobile-guide-box {
         background-color: #EFF6FF;
         border-left: 4px solid #2563EB;
@@ -76,19 +75,17 @@ st.markdown("""
         padding: 12px 16px;
         margin-bottom: 20px;
         font-size: 0.88rem;
-        color: #1E40AF;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        color: #1E40AF !important;
+        font-weight: 500;
     }
 
-    /* Metric Cards Styling */
+    /* Metric Cards - บังคับสีข้อความให้เข้มชัดเจน 100% */
     [data-testid="stMetric"] {
-        background-color: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        padding: 16px;
-        border-radius: 12px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        background-color: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
+        padding: 16px !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03) !important;
     }
     [data-testid="stMetricValue"] {
         font-size: 1.4rem !important;
@@ -97,13 +94,23 @@ st.markdown("""
     }
     [data-testid="stMetricLabel"] {
         font-size: 0.85rem !important;
-        color: #64748B !important;
+        color: #475569 !important;
+        font-weight: 500 !important;
+    }
+    [data-testid="stMetricDelta"] span {
+        color: #0284C7 !important; /* ปรับข้อความตัวอธิบายด้านล่างให้เป็นสีฟ้าเข้ม อ่านง่าย */
+        font-weight: 500 !important;
     }
 
-    /* Tabs Custom Styling */
+    /* Fix Streamlit Caption / Small text contrast */
+    .stCaption, small, p, span {
+        color: #1E293B !important;
+    }
+
+    /* Tabs Styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background-color: #E2E8F0;
+        background-color: #E2E8F0 !important;
         padding: 6px;
         border-radius: 12px;
         margin-bottom: 20px;
@@ -111,26 +118,25 @@ st.markdown("""
     .stTabs [data-baseweb="tab"] {
         font-size: 0.9rem;
         font-weight: 500;
-        color: #475569;
+        color: #334155 !important;
         padding: 10px 18px;
         border-radius: 8px;
         background-color: transparent;
-        transition: all 0.2s ease;
     }
     .stTabs [aria-selected="true"] {
         background-color: #FFFFFF !important;
         color: #2563EB !important;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
     }
 
-    /* Reason / Info Cards */
+    /* Reason Cards (ใต้กราฟ) */
     .reason-card {
-        background-color: #FFFFFF;
-        border: 1px solid #E2E8F0;
+        background-color: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
         border-radius: 12px;
         padding: 18px;
         height: 100%;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04);
     }
     .reason-card h4 {
         margin-top: 0;
@@ -139,26 +145,18 @@ st.markdown("""
         margin-bottom: 12px;
     }
 
-    /* Buttons Style */
+    /* Button Styling */
     div.stButton > button {
         width: 100%;
         border-radius: 10px;
         height: 2.8rem;
-        background-color: #2563EB;
-        color: #FFFFFF;
+        background-color: #2563EB !important;
+        color: #FFFFFF !important;
         font-weight: 500;
         border: none;
-        transition: background-color 0.2s ease;
     }
     div.stButton > button:hover {
-        background-color: #1D4ED8;
-    }
-    
-    /* Tables Styling */
-    .stTable {
-        border-radius: 10px;
-        overflow: hidden;
-        border: 1px solid #E2E8F0;
+        background-color: #1D4ED8 !important;
     }
     </style>
 """, unsafe_allow_html=True)
