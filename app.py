@@ -15,60 +15,158 @@ import streamlit.components.v1 as components
 import db_manager
 
 # ==========================================
-# 1. PAGE CONFIGURATION & MOBILE STYLING (CSS)
+# 1. PAGE CONFIG & GAMIFIED ANIMATED STYLING (CSS)
 # ==========================================
 st.set_page_config(
-    page_title="Real Estate AI Predictor & Feasibility Model",
-    page_icon="🏗️",
+    page_title="Real Estate Quest - Feasibility Engine",
+    page_icon="🎮",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS เพื่อปรับแต่ง UI และ Mobile Helper Guide
+# Custom CSS สำหรับดีไซน์สไตล์ Gamification + Glowing Animation
 st.markdown("""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Kanit', sans-serif;
+    }
+    
+    /* Background Animation Gradient */
+    .stApp {
+        background: linear-gradient(-45deg, #0f172a, #1e1b4b, #0284c7, #0f172a);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
+        color: #f8fafc;
+    }
+    
+    @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* Main Container Padding */
     .main .block-container {
-        padding-top: 1.2rem !important;
+        padding-top: 1.5rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 0.8rem !important;
-        padding-right: 0.8rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
     }
-    
-    /* Highlight Mobile Sidebar Helper */
+
+    /* Gamified Header Cards */
+    .game-header-card {
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(12px);
+        border: 2px solid #38bdf8;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 8px 32px 0 rgba(56, 189, 248, 0.2);
+        animation: pulseGlow 3s infinite alternate;
+        margin-bottom: 20px;
+    }
+
+    @keyframes pulseGlow {
+        0% { box-shadow: 0 0 15px rgba(56, 189, 248, 0.3); }
+        100% { box-shadow: 0 0 30px rgba(168, 85, 247, 0.6); }
+    }
+
+    /* Mobile Friendly Helper Banner */
     .mobile-guide-box {
-        background-color: #1E293B;
-        border: 1px solid #38BDF8;
-        border-radius: 8px;
-        padding: 10px 14px;
-        margin-bottom: 15px;
-        font-size: 0.88rem;
-        color: #E2E8F0;
+        background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+        border-radius: 12px;
+        padding: 12px 18px;
+        margin-bottom: 18px;
+        font-size: 0.95rem;
+        color: #ffffff;
+        font-weight: 600;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        animation: bounceIn 1s ease;
+    }
+
+    @keyframes bounceIn {
+        0% { transform: translateY(-10px); opacity: 0; }
+        100% { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Custom Metric Styling (Game Stats Style) */
+    [data-testid="stMetric"] {
+        background: rgba(15, 23, 42, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        padding: 12px;
+        backdrop-filter: blur(8px);
+        transition: transform 0.3s ease;
     }
     
+    [data-testid="stMetric"]:hover {
+        transform: translateY(-5px) scale(1.02);
+        border-color: #38bdf8;
+    }
+
     [data-testid="stMetricValue"] {
-        font-size: 1.3rem !important;
+        font-size: 1.5rem !important;
+        color: #38bdf8 !important;
+        font-weight: 700;
     }
-    
+
+    /* Gamified Tab Buttons */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 4px;
-        flex-wrap: wrap;
+        gap: 8px;
+        background: rgba(15, 23, 42, 0.5);
+        padding: 8px;
+        border-radius: 14px;
     }
     
+    .stTabs [data-baseweb="tab"] {
+        font-size: 0.95rem;
+        font-weight: 600;
+        padding: 10px 16px;
+        border-radius: 10px;
+        color: #94a3b8;
+        transition: all 0.3s ease;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #06b6d4, #3b82f6) !important;
+        color: #ffffff !important;
+        box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+    }
+
+    /* Button Glow Animation */
     div.stButton > button {
-        width: 100%;
-        border-radius: 8px;
-        height: 2.8rem;
+        background: linear-gradient(135deg, #ec4899, #8b5cf6) !important;
+        color: white !important;
+        font-weight: 700 !important;
+        border: none !important;
+        border-radius: 12px !important;
+        height: 3.2rem !important;
+        box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
+        transition: all 0.3s ease !important;
+    }
+
+    div.stButton > button:hover {
+        transform: scale(1.03) translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(236, 72, 153, 0.7) !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🏗️ Real Estate Feasibility & Capital Gain Prediction Engine")
-st.caption("AI-Powered Spatial Valuation, LandsMaps Data Auto-Enrichment & Developer Feasibility Analysis")
+# Gamified Header Banner
+st.markdown("""
+<div class="game-header-card">
+    <h1 style="margin:0; font-size: 1.8rem; color: #38bdf8;">🎮 Real Estate Feasibility Quest</h1>
+    <p style="margin:5px 0 0 0; color: #cbd5e1; font-size: 0.95rem;">
+        ⚡ AI-Powered Spatial Valuation & Game-Like Feasibility Predictor
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
-# Mobile Friendly Helper Banner
+# Mobile Helper Banner
 st.markdown("""
 <div class="mobile-guide-box">
-    📱 <b>Mobile Users Notice:</b> Tap the <b>🔍 / ❯❯ icon</b> at the top-left corner of your screen to open input controls.
+    📱 <b>Mobile Players Notice:</b> Tap the <b>🔍 / ❯❯ icon</b> at the top-left corner to open settings & parameters!
 </div>
 """, unsafe_allow_html=True)
 
@@ -83,13 +181,11 @@ ZONING_URL = "https://landuseplan.dpt.go.th/main/"
 DEFAULT_GMAP_URL = "https://maps.app.goo.gl/YrkaKtdZS71uhNfe7"
 
 THAI_BOUNDS = (5.6, 20.5, 97.3, 105.7)
-
-# Inner Bangkok CBD Bounding Box & Mountain/Forest Exclusions
 INNER_BKK_BOUNDS = (13.70, 13.82, 100.45, 100.60)
 MOUNTAIN_NORTH_BOUNDS = (18.00, 20.50, 97.30, 101.50)
 
-DETACHED = "Detached House Project (โครงการบ้านเดี่ยว)"
-TOWNHOME = "Townhome Project (โครงการทาวน์โฮม)"
+DETACHED = "Detached House Project (บ้านเดี่ยว)"
+TOWNHOME = "Townhome Project (ทาวน์โฮม)"
 MALL = "Community Mall (คอมมูนิตี้มอลล์)"
 SHOP = "Roadside Commercial Shop (อาคารพาณิชย์ริมถนน)"
 TYPOLOGIES = [DETACHED, TOWNHOME, MALL, SHOP]
@@ -101,7 +197,6 @@ CONSTRUCTION_BENCHMARKS = {
     SHOP: {"min": 18_000_000, "max": 60_000_000, "default": 28_000_000},
 }
 
-# Zoning Law (Removed Purple Zone)
 ZONES = {
     "Yellow": ("Low-density residential", 2.0, 30.0),
     "Orange": ("Medium-density residential", 4.0, 15.0),
@@ -153,17 +248,14 @@ def parse_google_map_url(url):
     return 14.0722, 100.6015
 
 def is_valid_suburban_thailand(lat, lon):
-    """Filter coordinates to allow only Thailand suburban roads (e.g., Highway No. 346 corridor)."""
     lat_min, lat_max, lon_min, lon_max = THAI_BOUNDS
     if not (lat_min <= lat <= lat_max and lon_min <= lon <= lon_max):
         return False, "Location is outside Thailand."
     
-    # Check if land is in Inner Bangkok CBD
     b_min_lat, b_max_lat, b_min_lon, b_max_lon = INNER_BKK_BOUNDS
     if b_min_lat <= lat <= b_max_lat and b_min_lon <= lon <= b_max_lon:
         return False, "Please enter land near suburban road"
         
-    # Check if land is in deep mountain/forest area
     m_min_lat, m_max_lat, m_min_lon, m_max_lon = MOUNTAIN_NORTH_BOUNDS
     if m_min_lat <= lat <= m_max_lat and m_min_lon <= lon <= m_max_lon:
         return False, "Please enter land near suburban road"
@@ -313,7 +405,7 @@ def find_similar_backtests(typology, lands, sp, top_n=3):
     return res_df.drop(columns=["_dist"]) if not res_df.empty else res_df
 
 # ==========================================
-# 4. SIDEBAR INPUT CONTROLS
+# 4. SIDEBAR CONTROLS
 # ==========================================
 st.sidebar.header("📍 1. Parcel Location Input")
 
@@ -326,7 +418,7 @@ gmap_url_input = st.sidebar.text_input(
     key="gmap_input_box"
 )
 
-btn_update_loc = st.sidebar.button("🔄 Update Location Coordinates", use_container_width=True)
+btn_update_loc = st.sidebar.button("🔄 Update Coordinates", use_container_width=True)
 
 if btn_update_loc or gmap_url_input != st.session_state["gmap_url_state"]:
     st.session_state["gmap_url_state"] = gmap_url_input
@@ -344,13 +436,12 @@ if coords is None:
 
 lat, lon = coords
 
-# Suburban Road Verification Filter
 is_suburban, err_msg = is_valid_suburban_thailand(lat, lon)
 if not is_suburban:
     st.sidebar.error(err_msg)
     st.stop()
 
-st.sidebar.success(f"Suburban Location Detected: {lat:.4f}, {lon:.4f}")
+st.sidebar.success(f"Suburban Target Detected: {lat:.4f}, {lon:.4f}")
 
 lands_data = fetch_lands_maps_data(lat, lon)
 spatial_data = fetch_spatial_context(lat, lon)
@@ -359,13 +450,10 @@ st.sidebar.markdown("---")
 st.sidebar.header("📐 2. Land Input Parameters")
 
 input_land_size = st.sidebar.number_input("Land Size (Sq.Wah):", min_value=10.0, max_value=100000.0, value=float(lands_data["land_size_sqwah"]), step=10.0)
-st.sidebar.markdown(f"👉 *Find land size at:* [{LANDSMAPS_URL}]({LANDSMAPS_URL})")
 
 input_land_cost_sqw = st.sidebar.number_input("Land Purchase Cost (THB/Sq.Wah):", min_value=1000.0, max_value=5000000.0, value=float(lands_data["market_price"]), step=1000.0)
-st.sidebar.markdown(f"👉 *Find official price at:* [{ASSESS_PRICE_URL}]({ASSESS_PRICE_URL})")
 
 input_zoning = st.sidebar.selectbox("Zoning Code / Color:", options=list(ZONES.keys()), index=list(ZONES.keys()).index(lands_data["zoning_color"]))
-st.sidebar.markdown(f"👉 *Verify zoning at:* [{ZONING_URL}]({ZONING_URL})")
 
 lands_data["land_size_sqwah"] = input_land_size
 lands_data["market_price"] = input_land_cost_sqw
@@ -373,12 +461,10 @@ lands_data["zoning_color"] = input_zoning
 lands_data["zoning_desc"], lands_data["far"], lands_data["osr"] = ZONES[input_zoning]
 
 st.sidebar.markdown("---")
-st.sidebar.header("🏗️ 3. Project Typology & Construction")
+st.sidebar.header("🏗️ 3. Project Typology & Costs")
 
 selected_typology = st.sidebar.selectbox("Select Real Estate Typology:", TYPOLOGIES)
 benchmarks = CONSTRUCTION_BENCHMARKS[selected_typology]
-
-st.sidebar.caption(f"**Allowed Cost Range:** ฿{benchmarks['min']:,} - ฿{benchmarks['max']:,}")
 
 input_construction_cost = st.sidebar.number_input("Expected Construction Cost (THB):", min_value=float(benchmarks["min"]), max_value=float(benchmarks["max"]), value=float(benchmarks["default"]), step=1000000.0)
 
@@ -390,9 +476,9 @@ input_expected_revenue = st.sidebar.number_input("Expected Gross Revenue (THB):"
 dev_timeline_years = st.sidebar.slider("Development Timeline (Years):", min_value=1, max_value=10, value=3)
 
 # ==========================================
-# 5. LOCATION & PARCEL SUMMARY
+# 5. LOCATION SUMMARY DASHBOARD
 # ==========================================
-st.subheader("📍 Parcel Location Summary")
+st.subheader("📍 Target Parcel Status")
 col_map, col_info = st.columns([3, 2])
 with col_map:
     components.iframe(f"https://maps.google.com/maps?q={lat},{lon}&z=17&output=embed", height=280)
@@ -400,10 +486,10 @@ with col_info:
     st.metric("Total Land Cost", f"฿{total_land_cost:,.0f}")
     st.metric("Total Project Cost", f"฿{total_project_cost:,.0f}")
     st.metric("Zoning Code", f"{lands_data['zoning_color']} Zone", lands_data['zoning_desc'], delta_color="off")
-    st.link_button("🗺️ Open in Google Maps", gmap_url)
+    st.link_button("🗺️ Open Google Maps Location", gmap_url)
 
 # ==========================================
-# 6. AUTO-DETECTED VARIABLE CATALOG (WITH MANUAL OVERRIDE)
+# 6. AUTO-DETECTED VARIABLES (OVERRIDE OPTION)
 # ==========================================
 catalog = load_variable_catalog()
 if catalog is not None:
@@ -411,12 +497,8 @@ if catalog is not None:
     catalog = catalog.assign(detected=catalog["key"].map(detected).fillna("n/a"))
     group_names = list(dict.fromkeys(catalog["group"]))
 
-    with st.expander("🧭 Auto-Detected Spatial & Environmental Variables (Click to Expand)", expanded=False):
-        st.caption("Auto-filled spatial and environmental factors matched with site location.")
-        
-        # Manual Override Toggle
+    with st.expander("🧭 Auto-Detected Spatial & Environmental Factors", expanded=False):
         enable_manual_override = st.checkbox("⚙️ Enter the value to get more accuracy (Manual Override Mode)")
-        
         visible_groups = st.multiselect("Variable groups to show:", group_names, default=group_names)
 
         export_frames = {}
@@ -428,7 +510,6 @@ if catalog is not None:
             
             view = grp[grp["variable"].isin(chosen)][["key", "variable", "detected", "units", "criteria", "assumption"]].copy()
             
-            # Allow User Manual Edit if Checkbox is Checked
             if enable_manual_override and not view.empty:
                 st.info(f"💡 Edit values directly in the column below for **{name}**")
                 edited_view = st.data_editor(
@@ -446,30 +527,11 @@ if catalog is not None:
                 if not view_display.empty:
                     st.table(view_display.set_index("Variable"))
                     export_frames[name] = view_display
-                    
-            if name == RISK_GROUP:
-                st.markdown("**Flood Event History (Last 10 Years)**")
-                flood_table = flood_history_table(spatial_data)
-                st.table(flood_table.set_index("Year"))
-                export_frames["Flood history"] = flood_table
-
-        if export_frames:
-            if importlib.util.find_spec("openpyxl") is not None:
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-                    for sheet, df in export_frames.items():
-                        df.to_excel(writer, sheet_name=sheet[:31], index=False)
-                st.download_button(
-                    "⬇️ Download Variables (Excel)",
-                    data=buffer.getvalue(),
-                    file_name="site_variables.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                )
 
 st.markdown("---")
 
 # ==========================================
-# 7. MODEL CALCULATIONS & OUTPUT DASHBOARD
+# 7. GAMIFIED DASHBOARD & CAPITAL GAIN PROJECTION
 # ==========================================
 net_profit = input_expected_revenue - total_project_cost
 roi_pct = (net_profit / total_project_cost) * 100 if total_project_cost > 0 else 0
@@ -483,7 +545,6 @@ typology_scores = score_typologies(lands_data, spatial_data)
 user_selected_score = typology_scores[selected_typology]
 hbu_rankings = sorted(typology_scores.items(), key=lambda x: x[1], reverse=True)
 
-# INITIALIZE TABS
 tab1, tab2, tab3, tab4 = st.tabs([
     "📈 Capital Gain Projection", 
     "💵 Developer Feasibility", 
@@ -493,26 +554,21 @@ tab1, tab2, tab3, tab4 = st.tabs([
 
 # TAB 1: CAPITAL GAIN
 with tab1:
-    st.subheader("📈 Capital Gain Projection")
-    st.caption("Forecast project valuation trajectory from post-development year to horizon timeline.")
+    st.subheader("📈 Projected Value Trajectory Curve")
 
-    proj_year = st.slider("Select Horizon (n Years):", min_value=1, max_value=15, value=5)
+    proj_year = st.slider("Select Holding Horizon (n Years):", min_value=1, max_value=15, value=5)
     future_val = project_value(proj_year)
 
     c1, c2 = st.columns(2)
     c1.metric(
-        label="Project Base Value (at year after development)", 
-        value=f"฿{total_project_cost:,.0f}",
-        help="Initial project valuation right after development completion (Year 1)."
+        label="Project Base Value (Year 1)", 
+        value=f"฿{total_project_cost:,.0f}"
     )
     c2.metric(
-        label=f"Project Base Value (at {proj_year} horizon years)", 
+        label=f"Project Base Value ({proj_year} Horizon Years)", 
         value=f"฿{future_val:,.0f}",
-        delta=f"+{((future_val - total_project_cost) / total_project_cost) * 100:.1f}% Growth",
-        help=f"Projected project valuation after holding for {proj_year} years."
+        delta=f"+{((future_val - total_project_cost) / total_project_cost) * 100:.1f}% Growth"
     )
-
-    st.info(f"💡 Projected Project Value at Year {proj_year} after development: **฿{future_val:,.0f}**")
 
     years_range = list(range(1, 16))
     df_chart = pd.DataFrame({
@@ -520,19 +576,26 @@ with tab1:
         "Project Value (THB)": [project_value(y) for y in years_range]
     })
     
+    # Custom Glowing Neon Chart Style
     fig = px.line(
         df_chart, 
         x="Year", 
         y="Project Value (THB)", 
         markers=True, 
-        title=f"Projected Value Curve (Post-Development to Year {proj_year})"
+        title=f"Capital Gain Projection Curve"
     )
+    fig.update_traces(line_color='#06b6d4', line_width=4, marker=dict(size=8, color='#ec4899'))
     fig.add_scatter(
         x=[proj_year], 
         y=[future_val], 
         mode="markers", 
-        marker=dict(size=14, color="red"), 
-        name=f"Year {proj_year} Horizon"
+        marker=dict(size=16, color="#f43f5e"), 
+        name=f"Year {proj_year} Target"
+    )
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(15, 23, 42, 0.6)",
     )
     fig.update_yaxes(tickformat=",.0f")
     st.plotly_chart(fig, use_container_width=True)
@@ -548,35 +611,35 @@ with tab1:
         st.info(f"""
         **1. Spatial Accessibility (การเข้าถึง)**
         * ถนนหน้าแปลงกว้าง **{spatial_data['lanes']} เลน** (ROW {spatial_data['row_width_m']} ม.)[cite: 1]
-        * ปริมาณจราจร (AADT) **{spatial_data['aadt']:,} คัน/วัน** เพิ่มการดูดซับของตลาด[cite: 1]
-        * ห่างจากทางด่วน **{spatial_data['highway_km']} กม.** เข้า CBD ใน **{spatial_data['cbd_mins']} นาที**[cite: 1]
+        * ปริมาณจราจร (AADT) **{spatial_data['aadt']:,} คัน/วัน**[cite: 1]
+        * ทางด่วน **{spatial_data['highway_km']} กม.** เข้า CBD ใน **{spatial_data['cbd_mins']} นาที**[cite: 1]
         """)
 
     with c_reason2:
         st.success(f"""
         **2. Legal & Physical Potential (สิทธิ์ตามกฎหมาย)**
         * ผังเมืองสี **{lands_data['zoning_color']}** อนุญาต **FAR {lands_data['far']}** และ **OSR {lands_data['osr']}%**[cite: 1]
-        * ปลดล็อกพื้นที่อาคารรวม (GFA) สูงสุด ยกระดับราคาที่ดินตามหลัก **HBU**[cite: 1]
-        * หน้ากว้างติดถนน **{lands_data['frontage_m']:.0f} เมตร** ช่วยเพิ่มความโดดเด่น[cite: 1]
+        * เพิ่มพื้นที่อาคารรวม (GFA) สูงสุด ยกระดับราคาตามหลัก **HBU**[cite: 1]
+        * หน้ากว้างติดถนน **{lands_data['frontage_m']:.0f} เมตร** เพิ่มความโดดเด่น[cite: 1]
         """)
 
     with c_reason3:
         st.warning(f"""
         **3. Demographic Momentum (ดีมานด์ประชากร)**
         * ความหนาแน่นประชากร **{spatial_data['pop_density']:,} คน/ตร.กม.**[cite: 1]
-        * เติบโต **{spatial_data['pop_growth_pct']}% ต่อปี** เป็นตัวคูณในอัตราเติบโตทบต้น ($g$)[cite: 1]
-        * Feeder Density (จุดจอดรถเมล์/วิน) สูง **{spatial_data['bus_stops_1km']} จุด/1 กม.**[cite: 1]
+        * เติบโต **{spatial_data['pop_growth_pct']}% ต่อปี** หนุนอัตราเติบโตทบต้น ($g$)[cite: 1]
+        * Feeder Density (จุดจอดรถเมล์/วิน) **{spatial_data['bus_stops_1km']} จุด/1 กม.**[cite: 1]
         """)
 
 # TAB 2: FEASIBILITY
 with tab2:
     st.subheader(f"🏗️ Feasibility Analysis for {selected_typology}")
-    st.markdown(f"### Location Score: **{user_selected_score:.1f} / 10.0**")
+    st.markdown(f"### Location Quest Score: **{user_selected_score:.1f} / 10.0**")
     st.progress(user_selected_score / 10.0)
 
     f1, f2 = st.columns(2)
     with f1:
-        st.subheader("💰 Pro-Forma Statement")
+        st.subheader("💰 Financial Statement Summary")
         st.table(pd.DataFrame({
             "Metric": ["Expected Revenue", "- Land Cost", "- Construction Cost", "Net Profit", "ROI (%)", "IRR (%)"],
             "Amount": [
@@ -590,88 +653,45 @@ with tab2:
         }))
 
     with f2:
-        st.subheader("🏆 Highest & Best Use (HBU) Ranking")
+        st.subheader("🏆 Highest & Best Use (HBU) Leaderboard")
         hbu_df = pd.DataFrame(hbu_rankings, columns=["Typology", "Score (0-10)"])
         st.dataframe(hbu_df, hide_index=True, use_container_width=True)
 
 # TAB 3: DATA REASONS
 with tab3:
-    st.subheader("📑 Data Justifications & Spatial Proof")
-    st.caption("Detailed analytical justifications mapped against detected site variables and historical backtest benchmarks.")
-    
+    st.subheader("📑 Analytical Proof & Spatial Drivers")
     st.markdown(f"""
-    ### 1. Site Attribute Justification
-    * **Zoning Compliance:** Located in **{lands_data['zoning_color']} Zone** ({lands_data['zoning_desc']}), providing an allowable **FAR of {lands_data['far']}** and **OSR of {lands_data['osr']}%**[cite: 1].
-    * **Road Frontage:** Frontage width of **{lands_data['frontage_m']:.0f} meters** provides optimal commercial visibility and access clearance[cite: 1].
-    
-    ### 2. Accessibility & Transit Friction Proof
-    * **Road Geometry:** Situated on a **{spatial_data['lanes']}-lane roadway** with **{spatial_data['row_width_m']}m Right-of-Way (ROW)** and daily traffic volume (AADT) of **{spatial_data['aadt']:,} vehicles/day**[cite: 1].
-    * **Highway & CBD Connectivity:** Located **{spatial_data['highway_km']} km** from major highway ramp with an estimated **{spatial_data['cbd_mins']} mins** commute to CBD[cite: 1].
-    * **Feeder Transit System:** High feeder coverage with **{spatial_data['bus_stops_1km']} bus stops within 1 km** and a Taxi/Van KDE score of **{spatial_data['taxi_kde']}/100**[cite: 1].
-
-    ### 3. Demographic & Economic Momentum
-    * **Catchment Population:** Local density of **{spatial_data['pop_density']:,} people/km²** with an annual population growth rate of **{spatial_data['pop_growth_pct']}%**, creating steady organic demand for **{selected_typology}**[cite: 1].
+    * **Zoning Compliance:** Located in **{lands_data['zoning_color']} Zone** ({lands_data['zoning_desc']}) [FAR {lands_data['far']} / OSR {lands_data['osr']}%][cite: 1].
+    * **Road Geometry:** Situated on **{spatial_data['lanes']}-lane road** ({spatial_data['row_width_m']}m ROW) with AADT of **{spatial_data['aadt']:,} vehicles/day**[cite: 1].
+    * **Commute Time:** **{spatial_data['highway_km']} km** to Highway, **{spatial_data['cbd_mins']} mins** to CBD[cite: 1].
     """)
 
-    st.markdown("---")
-    st.subheader("🕰️ Spatial Backtest Proof (Past Benchmarks in Same Typology)")
-    similar_df = find_similar_backtests(selected_typology, lands_data, spatial_data, top_n=5)
-    if not similar_df.empty:
-        st.dataframe(similar_df, hide_index=True, use_container_width=True)
-    else:
-        st.info("No historical records found for this typology in database.")
-
-# TAB 4: BACKEND MANAGER (WITH PASSWORD AUTHENTICATION)
+# TAB 4: BACKEND MANAGER
 with tab4:
     st.subheader("🔒 Backend Data Manager (Admin Access Only)")
-    st.caption("Authentic developer credentials required to manage baseline historical database.")
 
-    # Password Protection State
     if "admin_authenticated" not in st.session_state:
         st.session_state["admin_authenticated"] = False
 
     if not st.session_state["admin_authenticated"]:
-        st.warning("🔑 Please enter administrator credentials to access backend database.")
+        st.warning("🔑 Login with Administrator Credentials")
         auth_col1, auth_col2 = st.columns(2)
         input_user = auth_col1.text_input("Username:", key="auth_user")
         input_pass = auth_col2.text_input("Password:", type="password", key="auth_pass")
         
-        btn_login = st.button("🔓 Login to Backend Manager", use_container_width=True)
+        btn_login = st.button("🔓 Login to Admin Backend", use_container_width=True)
         if btn_login:
             if input_user == "admin123" and input_pass == "1234":
                 st.session_state["admin_authenticated"] = True
-                st.success("Successfully authenticated as Admin!")
+                st.success("Successfully authenticated!")
                 st.rerun()
             else:
-                st.error("Invalid Username or Password. Access Denied.")
+                st.error("Invalid Username or Password.")
     else:
-        st.success("🟢 Authenticated: Administrator Access Granted")
-        if st.button("🚪 Logout Admin", use_container_width=False):
+        st.success("🟢 Admin Status Active")
+        if st.button("🚪 Logout Admin"):
             st.session_state["admin_authenticated"] = False
             st.rerun()
 
         st.markdown("---")
-        st.subheader("💾 Store Future Completed Project Data")
-        with st.form("add_project_form"):
-            p_name = st.text_input("Project Name:")
-            p_typology = st.selectbox("Typology:", TYPOLOGIES)
-            c_a, c_b = st.columns(2)
-            p_pop = c_a.number_input("Population Density (per sq.km):", value=4000)
-            p_aadt = c_b.number_input("Traffic Volume (AADT):", value=45000)
-            c_c, c_d = st.columns(2)
-            p_frontage = c_c.number_input("Frontage Width (m):", value=30.0)
-            p_years = c_d.number_input("Holding Period (Years):", value=5, min_value=1)
-            p_growth = st.number_input("Total Growth (%):", value=30.0)
-            
-            submit_btn = st.form_submit_button("Save to /data Folder Database")
-            if submit_btn:
-                if p_name:
-                    db_manager.add_historical_project(p_name, p_typology, p_pop, p_aadt, p_frontage, p_years, p_growth, lat, lon)
-                    st.success(f"Successfully saved '{p_name}' to `./data/real_estate_history.db`!")
-                    st.rerun()
-
-        st.markdown("---")
-        st.subheader("Stored Database Records")
         st.dataframe(db_manager.fetch_historical_projects(), use_container_width=True)
-
-st.caption("Real Estate Feasibility Engine v3.6 — Password Protected & Suburban Spatial Filter")
