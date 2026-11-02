@@ -21,45 +21,39 @@ st.set_page_config(
     page_title="Real Estate AI Predictor & Feasibility Model",
     page_icon="🏗️",
     layout="wide",
-    initial_sidebar_state="collapsed"  # ยุบ Sidebar บนมือถือเพื่อเพิ่มพื้นที่หน้าจอ
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS เพื่อปรับแต่ง UI บนสมาร์ทโฟนและอุปกรณ์เคลื่อนที่
+# Custom CSS เพื่อปรับแต่ง UI และ Mobile Helper Guide
 st.markdown("""
     <style>
-    /* ปรับแต่ง Padding สำหรับหน้าจอมือถือ */
     .main .block-container {
-        padding-top: 1.5rem !important;
+        padding-top: 1.2rem !important;
         padding-bottom: 2rem !important;
         padding-left: 0.8rem !important;
         padding-right: 0.8rem !important;
     }
     
-    /* ปรับขนาดตัวอักษรของ Metric ให้สมดุลบนมือถือ */
+    /* Highlight Mobile Sidebar Helper */
+    .mobile-guide-box {
+        background-color: #1E293B;
+        border: 1px solid #38BDF8;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 15px;
+        font-size: 0.88rem;
+        color: #E2E8F0;
+    }
+    
     [data-testid="stMetricValue"] {
         font-size: 1.3rem !important;
     }
-    [data-testid="stMetricLabel"] {
-        font-size: 0.85rem !important;
-    }
     
-    /* ปรับแต่ง แท็บ (Tabs) ให้กดง่ายขึ้นบนหน้าจอสัมผัส */
     .stTabs [data-baseweb="tab-list"] {
         gap: 4px;
         flex-wrap: wrap;
     }
-    .stTabs [data-baseweb="tab"] {
-        font-size: 0.85rem;
-        padding: 8px 12px;
-        border-radius: 6px;
-    }
     
-    /* ซ่อนแถบ Scrollbar แนวนอนในตารางสำหรับมือถือ */
-    .stTable {
-        overflow-x: auto;
-    }
-    
-    /* ปรับปุ่มกดให้ขยายเต็มความกว้าง (Full Width) สำหรับมือถือ */
     div.stButton > button {
         width: 100%;
         border-radius: 8px;
@@ -70,6 +64,13 @@ st.markdown("""
 
 st.title("🏗️ Real Estate Feasibility & Capital Gain Prediction Engine")
 st.caption("AI-Powered Spatial Valuation, LandsMaps Data Auto-Enrichment & Developer Feasibility Analysis")
+
+# Mobile Friendly Helper Banner
+st.markdown("""
+<div class="mobile-guide-box">
+    📱 <b>Mobile Users Notice:</b> Tap the <b>🔍 / ❯❯ icon</b> at the top-left corner of your screen to open input controls.
+</div>
+""", unsafe_allow_html=True)
 
 db_manager.init_db()
 
@@ -82,6 +83,10 @@ ZONING_URL = "https://landuseplan.dpt.go.th/main/"
 DEFAULT_GMAP_URL = "https://maps.app.goo.gl/YrkaKtdZS71uhNfe7"
 
 THAI_BOUNDS = (5.6, 20.5, 97.3, 105.7)
+
+# Inner Bangkok CBD Bounding Box & Mountain/Forest Exclusions
+INNER_BKK_BOUNDS = (13.70, 13.82, 100.45, 100.60)
+MOUNTAIN_NORTH_BOUNDS = (18.00, 20.50, 97.30, 101.50)
 
 DETACHED = "Detached House Project (โครงการบ้านเดี่ยว)"
 TOWNHOME = "Townhome Project (โครงการทาวน์โฮม)"
@@ -96,31 +101,30 @@ CONSTRUCTION_BENCHMARKS = {
     SHOP: {"min": 18_000_000, "max": 60_000_000, "default": 28_000_000},
 }
 
+# Zoning Law (Removed Purple Zone)
 ZONES = {
     "Yellow": ("Low-density residential", 2.0, 30.0),
     "Orange": ("Medium-density residential", 4.0, 15.0),
     "Red": ("Commercial", 7.0, 10.0),
-    "Purple": ("Industrial & Warehouse", 3.0, 20.0),
 }
 
 BASE_APPRECIATION = 0.025
 RISK_GROUP = "Risk History"
 
 # ==========================================
-# 3. HELPER FUNCTIONS & ENHANCED URL PARSER
+# 3. HELPER FUNCTIONS & LOCATION PARSER
 # ==========================================
 COORD_PATTERNS = [
-    r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)",                          # Google Maps Embed / Shared Place
-    r"@(-?\d+\.\d+),(-?\d+\.\d+)",                              # @lat,lon
-    r"[?&](?:q|ll|query|destination)=(-?\d+\.\d+),[\s+]*(-?\d+\.\d+)", # q=lat,lon or ll=lat,lon
-    r"/place/[^/]+/(-?\d+\.\d+),(-?\d+\.\d+)",                  # Named Place with Coords
-    r"/place/(-?\d+\.\d+),(-?\d+\.\d+)",                         # Direct Place Coords
-    r"(-?\d+\.\d+)[\s,]+(-?\d+\.\d+)",                           # Raw Lat, Lon input
+    r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)",
+    r"@(-?\d+\.\d+),(-?\d+\.\d+)",
+    r"[?&](?:q|ll|query|destination)=(-?\d+\.\d+),[\s+]*(-?\d+\.\d+)",
+    r"/place/[^/]+/(-?\d+\.\d+),(-?\d+\.\d+)",
+    r"/place/(-?\d+\.\d+),(-?\d+\.\d+)",
+    r"(-?\d+\.\d+)[\s,]+(-?\d+\.\d+)",
 ]
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def resolve_short_url(url):
-    """Resolve shortened URLs like maps.app.goo.gl to full URLs."""
     try:
         clean_url = url.split("?")[0] if "?" in url else url
         req = Request(clean_url, headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)"})
@@ -136,26 +140,35 @@ def is_google_maps_link(url):
     return bool(re.search(r"google\.|goo\.gl|maps\.app", url_str))
 
 def parse_google_map_url(url):
-    """Extract (lat, lon) from Google Maps link or raw coordinates."""
     url = (url or "").strip()
     if not url:
         return None
-    
     if re.search(r"goo\.gl|maps\.app", url.lower()):
         url = resolve_short_url(url)
-        
     url = unquote(url)
-    
     for pattern in COORD_PATTERNS:
         match = re.search(pattern, url)
         if match:
             return float(match.group(1)), float(match.group(2))
-            
     return 14.0722, 100.6015
 
-def in_thailand(lat, lon):
+def is_valid_suburban_thailand(lat, lon):
+    """Filter coordinates to allow only Thailand suburban roads (e.g., Highway No. 346 corridor)."""
     lat_min, lat_max, lon_min, lon_max = THAI_BOUNDS
-    return lat_min <= lat <= lat_max and lon_min <= lon <= lon_max
+    if not (lat_min <= lat <= lat_max and lon_min <= lon <= lon_max):
+        return False, "Location is outside Thailand."
+    
+    # Check if land is in Inner Bangkok CBD
+    b_min_lat, b_max_lat, b_min_lon, b_max_lon = INNER_BKK_BOUNDS
+    if b_min_lat <= lat <= b_max_lat and b_min_lon <= lon <= b_max_lon:
+        return False, "Please enter land near suburban road"
+        
+    # Check if land is in deep mountain/forest area
+    m_min_lat, m_max_lat, m_min_lon, m_max_lon = MOUNTAIN_NORTH_BOUNDS
+    if m_min_lat <= lat <= m_max_lat and m_min_lon <= lon <= m_max_lon:
+        return False, "Please enter land near suburban road"
+        
+    return True, "Valid suburban location"
 
 def fetch_lands_maps_data(lat, lon):
     rng = random.Random(f"landsmaps|{lat:.4f},{lon:.4f}")
@@ -300,7 +313,7 @@ def find_similar_backtests(typology, lands, sp, top_n=3):
     return res_df.drop(columns=["_dist"]) if not res_df.empty else res_df
 
 # ==========================================
-# 4. SIDEBAR INPUT CONTROLS (MOBILE FRIENDLY)
+# 4. SIDEBAR INPUT CONTROLS
 # ==========================================
 st.sidebar.header("📍 1. Parcel Location Input")
 
@@ -313,8 +326,7 @@ gmap_url_input = st.sidebar.text_input(
     key="gmap_input_box"
 )
 
-# ปุ่มกดสั่งอัปเดตตำแหน่งพิกัดบนมือถือ
-btn_update_loc = st.sidebar.button("🔄 อัปเดตตำแหน่งพิกัด", use_container_width=True)
+btn_update_loc = st.sidebar.button("🔄 Update Location Coordinates", use_container_width=True)
 
 if btn_update_loc or gmap_url_input != st.session_state["gmap_url_state"]:
     st.session_state["gmap_url_state"] = gmap_url_input
@@ -331,11 +343,14 @@ if coords is None:
     st.stop()
 
 lat, lon = coords
-if not in_thailand(lat, lon):
-    st.sidebar.error(f"Location ({lat:.4f}, {lon:.4f}) is outside Thailand.")
+
+# Suburban Road Verification Filter
+is_suburban, err_msg = is_valid_suburban_thailand(lat, lon)
+if not is_suburban:
+    st.sidebar.error(err_msg)
     st.stop()
 
-st.sidebar.success(f"Location Detected: Lat {lat:.4f}, Lon {lon:.4f}")
+st.sidebar.success(f"Suburban Location Detected: {lat:.4f}, {lon:.4f}")
 
 lands_data = fetch_lands_maps_data(lat, lon)
 spatial_data = fetch_spatial_context(lat, lon)
@@ -388,7 +403,7 @@ with col_info:
     st.link_button("🗺️ Open in Google Maps", gmap_url)
 
 # ==========================================
-# 6. AUTO-DETECTED VARIABLE CATALOG
+# 6. AUTO-DETECTED VARIABLE CATALOG (WITH MANUAL OVERRIDE)
 # ==========================================
 catalog = load_variable_catalog()
 if catalog is not None:
@@ -398,6 +413,10 @@ if catalog is not None:
 
     with st.expander("🧭 Auto-Detected Spatial & Environmental Variables (Click to Expand)", expanded=False):
         st.caption("Auto-filled spatial and environmental factors matched with site location.")
+        
+        # Manual Override Toggle
+        enable_manual_override = st.checkbox("⚙️ Enter the value to get more accuracy (Manual Override Mode)")
+        
         visible_groups = st.multiselect("Variable groups to show:", group_names, default=group_names)
 
         export_frames = {}
@@ -406,14 +425,28 @@ if catalog is not None:
             st.markdown(f"#### {name}")
             options = grp["variable"].tolist()
             chosen = st.multiselect(f"Variables in {name}:", options, default=options, key=f"vars_{name}")
-            view = grp[grp["variable"].isin(chosen)][["variable", "detected", "units", "criteria", "assumption"]]
-            view = view.rename(columns={
-                "variable": "Variable", "detected": "Detected value", "units": "Units",
-                "criteria": "Criteria", "assumption": "Assumption",
-            })
-            if not view.empty:
-                st.table(view.set_index("Variable"))
-                export_frames[name] = view
+            
+            view = grp[grp["variable"].isin(chosen)][["key", "variable", "detected", "units", "criteria", "assumption"]].copy()
+            
+            # Allow User Manual Edit if Checkbox is Checked
+            if enable_manual_override and not view.empty:
+                st.info(f"💡 Edit values directly in the column below for **{name}**")
+                edited_view = st.data_editor(
+                    view[["variable", "detected", "units"]],
+                    key=f"editor_{name}",
+                    use_container_width=True,
+                    disabled=["variable", "units"]
+                )
+                export_frames[name] = edited_view
+            else:
+                view_display = view[["variable", "detected", "units", "criteria", "assumption"]].rename(columns={
+                    "variable": "Variable", "detected": "Detected value", "units": "Units",
+                    "criteria": "Criteria", "assumption": "Assumption",
+                })
+                if not view_display.empty:
+                    st.table(view_display.set_index("Variable"))
+                    export_frames[name] = view_display
+                    
             if name == RISK_GROUP:
                 st.markdown("**Flood Event History (Last 10 Years)**")
                 flood_table = flood_history_table(spatial_data)
@@ -427,19 +460,10 @@ if catalog is not None:
                     for sheet, df in export_frames.items():
                         df.to_excel(writer, sheet_name=sheet[:31], index=False)
                 st.download_button(
-                    "⬇️ Download Visible Variables (Excel)",
+                    "⬇️ Download Variables (Excel)",
                     data=buffer.getvalue(),
                     file_name="site_variables.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                )
-            else:
-                frames = [df.assign(Group=sheet) for sheet, df in export_frames.items() if "Variable" in df.columns]
-                csv_data = pd.concat(frames, ignore_index=True).to_csv(index=False).encode("utf-8-sig")
-                st.download_button(
-                    "⬇️ Download Visible Variables (CSV)",
-                    data=csv_data,
-                    file_name="site_variables.csv",
-                    mime="text/csv",
                 )
 
 st.markdown("---")
@@ -459,14 +483,12 @@ typology_scores = score_typologies(lands_data, spatial_data)
 user_selected_score = typology_scores[selected_typology]
 hbu_rankings = sorted(typology_scores.items(), key=lambda x: x[1], reverse=True)
 
-# ------------------------------------------
 # INITIALIZE TABS
-# ------------------------------------------
 tab1, tab2, tab3, tab4 = st.tabs([
     "📈 Capital Gain Projection", 
     "💵 Developer Feasibility", 
     "📑 Data Reasons & Proof", 
-    "💾 Backend Data Manager"
+    "🔒 Backend Data Manager"
 ])
 
 # TAB 1: CAPITAL GAIN
@@ -515,9 +537,7 @@ with tab1:
     fig.update_yaxes(tickformat=",.0f")
     st.plotly_chart(fig, use_container_width=True)
 
-    # ------------------------------------------
-    # REASONS BELOW THE CHART (เหตุผลใต้กราฟ)
-    # ------------------------------------------
+    # REASONS BELOW THE CHART
     st.markdown("---")
     st.markdown("### 💡 Why Project Base Value Increases?")
     st.caption("สรุปปัจจัยเชิงพื้นที่และศักยภาพทางกายภาพที่ขับเคลื่อนการเติบโตของมูลค่าโครงการตามแนวโค้งในกราฟ")
@@ -595,39 +615,63 @@ with tab3:
 
     st.markdown("---")
     st.subheader("🕰️ Spatial Backtest Proof (Past Benchmarks in Same Typology)")
-    st.caption("Historical dataset comparison with completed real estate developments sharing similar spatial characteristics.")
-    
     similar_df = find_similar_backtests(selected_typology, lands_data, spatial_data, top_n=5)
     if not similar_df.empty:
         st.dataframe(similar_df, hide_index=True, use_container_width=True)
     else:
         st.info("No historical records found for this typology in database.")
 
-# TAB 4: BACKEND MANAGER
+# TAB 4: BACKEND MANAGER (WITH PASSWORD AUTHENTICATION)
 with tab4:
-    st.subheader("💾 Store Future Project Data")
-    st.caption("Save new completed project data to the SQLite database stored in the `/data` directory.")
+    st.subheader("🔒 Backend Data Manager (Admin Access Only)")
+    st.caption("Authentic developer credentials required to manage baseline historical database.")
 
-    with st.form("add_project_form"):
-        p_name = st.text_input("Project Name:")
-        p_typology = st.selectbox("Typology:", TYPOLOGIES)
-        c_a, c_b = st.columns(2)
-        p_pop = c_a.number_input("Population Density (per sq.km):", value=4000)
-        p_aadt = c_b.number_input("Traffic Volume (AADT):", value=45000)
-        c_c, c_d = st.columns(2)
-        p_frontage = c_c.number_input("Frontage Width (m):", value=30.0)
-        p_years = c_d.number_input("Holding Period (Years):", value=5, min_value=1)
-        p_growth = st.number_input("Total Growth (%):", value=30.0)
+    # Password Protection State
+    if "admin_authenticated" not in st.session_state:
+        st.session_state["admin_authenticated"] = False
+
+    if not st.session_state["admin_authenticated"]:
+        st.warning("🔑 Please enter administrator credentials to access backend database.")
+        auth_col1, auth_col2 = st.columns(2)
+        input_user = auth_col1.text_input("Username:", key="auth_user")
+        input_pass = auth_col2.text_input("Password:", type="password", key="auth_pass")
         
-        submit_btn = st.form_submit_button("Save to /data Folder Database")
-        if submit_btn:
-            if p_name:
-                db_manager.add_historical_project(p_name, p_typology, p_pop, p_aadt, p_frontage, p_years, p_growth, lat, lon)
-                st.success(f"Successfully saved '{p_name}' to `./data/real_estate_history.db`!")
+        btn_login = st.button("🔓 Login to Backend Manager", use_container_width=True)
+        if btn_login:
+            if input_user == "admin123" and input_pass == "1234":
+                st.session_state["admin_authenticated"] = True
+                st.success("Successfully authenticated as Admin!")
                 st.rerun()
+            else:
+                st.error("Invalid Username or Password. Access Denied.")
+    else:
+        st.success("🟢 Authenticated: Administrator Access Granted")
+        if st.button("🚪 Logout Admin", use_container_width=False):
+            st.session_state["admin_authenticated"] = False
+            st.rerun()
 
-    st.markdown("---")
-    st.subheader("Stored Database Records")
-    st.dataframe(db_manager.fetch_historical_projects(), use_container_width=True)
+        st.markdown("---")
+        st.subheader("💾 Store Future Completed Project Data")
+        with st.form("add_project_form"):
+            p_name = st.text_input("Project Name:")
+            p_typology = st.selectbox("Typology:", TYPOLOGIES)
+            c_a, c_b = st.columns(2)
+            p_pop = c_a.number_input("Population Density (per sq.km):", value=4000)
+            p_aadt = c_b.number_input("Traffic Volume (AADT):", value=45000)
+            c_c, c_d = st.columns(2)
+            p_frontage = c_c.number_input("Frontage Width (m):", value=30.0)
+            p_years = c_d.number_input("Holding Period (Years):", value=5, min_value=1)
+            p_growth = st.number_input("Total Growth (%):", value=30.0)
+            
+            submit_btn = st.form_submit_button("Save to /data Folder Database")
+            if submit_btn:
+                if p_name:
+                    db_manager.add_historical_project(p_name, p_typology, p_pop, p_aadt, p_frontage, p_years, p_growth, lat, lon)
+                    st.success(f"Successfully saved '{p_name}' to `./data/real_estate_history.db`!")
+                    st.rerun()
 
-st.caption("Real Estate Feasibility Engine v3.5 — Full Production Release with Mobile Optimization")
+        st.markdown("---")
+        st.subheader("Stored Database Records")
+        st.dataframe(db_manager.fetch_historical_projects(), use_container_width=True)
+
+st.caption("Real Estate Feasibility Engine v3.6 — Password Protected & Suburban Spatial Filter")
