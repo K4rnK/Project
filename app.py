@@ -513,12 +513,19 @@ dev_timeline_years = st.sidebar.slider("Development Timeline (Years):", min_valu
 # ==========================================
 st.subheader("📍 Parcel Location Summary")
 col_map, col_info = st.columns([3, 2])
+
 with col_map:
     components.iframe(f"https://maps.google.com/maps?q={lat},{lon}&z=17&output=embed", height=280)
+
 with col_info:
     st.metric("Total Land Cost", f"฿{total_land_cost:,.0f}")
     st.metric("Total Project Cost", f"฿{total_project_cost:,.0f}")
-    st.metric("Zoning Code", f"{lands_data['zoning_color']} Zone", lands_data['zoning_desc'], delta_color="off")
+    
+    # แสดงสีผังเมืองด้วย HTML Color Badge
+    st.markdown("**Zoning Law Code:**")
+    st.markdown(get_zoning_badge_html(lands_data['zoning_color'], lands_data['zoning_desc']), unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
     st.link_button("🗺️ Open in Google Maps", gmap_url)
 
 # ==========================================
