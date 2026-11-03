@@ -407,6 +407,31 @@ def find_similar_backtests(typology, lands, sp, top_n=3):
     res_df = pd.DataFrame(rows[:top_n])
     return res_df.drop(columns=["_dist"]) if not res_df.empty else res_df
 
+def get_zoning_badge_html(zone_name, zone_desc):
+    """ส่งคืน HTML Badge ที่มีสีพื้นหลังตรงตามสีผังเมืองจริง"""
+    color_map = {
+        "Yellow": {"bg": "#EAB308", "text": "#1E293B", "border": "#FACC15"},  # สีเหลือง
+        "Orange": {"bg": "#F97316", "text": "#FFFFFF", "border": "#FB923C"},  # สีส้ม
+        "Red":    {"bg": "#EF4444", "text": "#FFFFFF", "border": "#F87171"},  # สีแดง
+    }
+    style = color_map.get(zone_name, {"bg": "#64748B", "text": "#FFFFFF", "border": "#94A3B8"})
+    
+    return f"""
+    <div style="
+        background-color: {style['bg']};
+        color: {style['text']};
+        border: 1px solid {style['border']};
+        padding: 6px 14px;
+        border-radius: 8px;
+        display: inline-block;
+        font-weight: 700;
+        font-size: 0.95rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    ">
+        {zone_name} Zone ({zone_desc})
+    </div>
+    """
+
 # ==========================================
 # 4. SIDEBAR INPUT CONTROLS
 # ==========================================
